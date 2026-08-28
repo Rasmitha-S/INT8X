@@ -1,6 +1,7 @@
 """
+EDGECORE: Edge AI Optimization Console
 PS09: INT8 Quantized CNN Deployment for Resource-Constrained TinyML Devices.
-Minimalist, high-clarity Streamlit dashboard for demonstrating INT8 Post-Training Quantization.
+A high-contrast, engineering-focused Edge AI laboratory console for neural network quantization and embedded verification.
 """
 import json
 import os
@@ -94,7 +95,7 @@ def preprocess_uploaded_image(uploaded_file) -> Tuple[np.ndarray, Image.Image]:
     img_resized = img.resize((28, 28), Image.Resampling.BILINEAR)
     arr = np.array(img_resized, dtype=np.float32)
 
-    # Check if background is light (mean corners > 127) and invert to match MNIST (white digit on black background)
+    # Check if background is light (mean corners > 127) and invert to match MNIST
     corners = [arr[0, 0], arr[0, 27], arr[27, 0], arr[27, 27]]
     if np.mean(corners) > 127.0:
         arr = 255.0 - arr
@@ -106,64 +107,191 @@ def preprocess_uploaded_image(uploaded_file) -> Tuple[np.ndarray, Image.Image]:
 
 
 # -----------------------------------------------------------------------------
-# Page Configuration & CSS Styling
+# Page Configuration & Theme Styling
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="INT8 Quantized CNN for TinyML",
+    page_title="EDGECORE // Edge AI Optimization Console",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
     """
     <style>
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-        color: #38BDF8;
-    }
-    .subtitle {
-        font-size: 1.1rem;
-        color: #94A3B8;
-        margin-bottom: 1.2rem;
-    }
-    .pipeline-badge {
-        display: inline-block;
-        background: #1E293B;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 8px 16px;
-        font-family: monospace;
-        font-size: 0.95rem;
-        color: #38BDF8;
-        margin-bottom: 1.5rem;
-    }
-    .metric-card {
-        background: #1E293B;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-    }
-    .metric-val {
-        font-size: 1.8rem;
-        font-weight: 700;
+    /* Dark Theme & Base Canvas */
+    .stApp {
+        background-color: #08090D;
         color: #F8FAFC;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    .metric-lbl {
-        font-size: 0.85rem;
-        color: #94A3B8;
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #08090D;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #1E2230;
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #7C3AED;
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #0B0D14 !important;
+        border-right: 1px solid #1A1E2E;
+    }
+
+    /* Brand Header in Sidebar */
+    .brand-box {
+        padding: 12px 6px 20px 6px;
+        border-bottom: 1px solid #1A1E2E;
+        margin-bottom: 20px;
+    }
+    .brand-title {
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        background: linear-gradient(135deg, #00E5FF 0%, #7C3AED 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 2px;
+    }
+    .brand-subtitle {
+        font-size: 0.72rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .metric-delta {
-        font-size: 0.85rem;
+        letter-spacing: 0.18em;
+        color: #64748B;
         font-weight: 600;
     }
-    .delta-pos { color: #10B981; }
-    .delta-neu { color: #38BDF8; }
+
+    /* Sidebar Status Badges */
+    .status-panel {
+        background: #11131A;
+        border: 1px solid #1E2230;
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 24px;
+        font-size: 0.75rem;
+    }
+    .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        border-bottom: 1px solid #161924;
+    }
+    .status-row:last-child {
+        border-bottom: none;
+    }
+    .dot-ready {
+        color: #A3FF12;
+        font-weight: 800;
+    }
+
+    /* Top Persistent Pipeline Ribbon */
+    .pipeline-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0E1017;
+        border: 1px solid #1E2230;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-bottom: 24px;
+        overflow-x: auto;
+    }
+    .pipeline-step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #64748B;
+        white-space: nowrap;
+    }
+    .pipeline-step.verified {
+        color: #A3FF12;
+    }
+    .pipeline-step.active {
+        color: #00E5FF;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+    }
+    .pipeline-arrow {
+        color: #334155;
+        font-size: 0.85rem;
+    }
+
+    /* Impact Hero Cards */
+    .hero-card {
+        background: #11131A;
+        border: 1px solid #1E2230;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: left;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .hero-card:hover {
+        border-color: #7C3AED;
+        transform: translateY(-2px);
+    }
+    .hero-val {
+        font-size: 2.2rem;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        margin-bottom: 4px;
+    }
+    .hero-val.cyan { color: #00E5FF; }
+    .hero-val.violet { color: #A78BFA; }
+    .hero-val.lime { color: #A3FF12; }
+    .hero-val.amber { color: #FFB020; }
+    .hero-lbl {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #94A3B8;
+    }
+    .hero-sub {
+        font-size: 0.8rem;
+        color: #64748B;
+        margin-top: 4px;
+    }
+
+    /* Transformation Banner */
+    .transform-box {
+        background: linear-gradient(135deg, #11131A 0%, #161824 100%);
+        border: 1px solid #252A3D;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    /* Cockpit HUD Card */
+    .hud-card {
+        background: #11131A;
+        border: 1px solid #1E2230;
+        border-radius: 8px;
+        padding: 16px;
+    }
+    .hud-header {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #64748B;
+        margin-bottom: 8px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -171,130 +299,288 @@ st.markdown(
 
 
 # -----------------------------------------------------------------------------
-# Main Application Layout
+# Global Data Loaders
 # -----------------------------------------------------------------------------
-st.markdown('<div class="main-title">INT8 Quantized CNN Deployment for TinyML</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Resource-Constrained Edge Deep Learning via Post-Training Quantization (PTQ)</div>', unsafe_allow_html=True)
-
-# Navigation Tabs
-tab_dash, tab_infer, tab_analysis, tab_tinyml, tab_how = st.tabs([
-    "📊 Dashboard",
-    "⚡ Live Inference",
-    "📈 Model Analysis",
-    "🎛️ TinyML Verification",
-    "📖 How It Works",
-])
-
-# Load data
 comparison = load_comparison_data()
 metrics = load_metrics_data()
 tinyml_analysis = load_tinyml_analysis()
-
 has_data = bool(comparison and "comparison_results" in comparison)
 
+fp32_b = comparison.get("fp32_baseline", {})
+int8_q = comparison.get("int8_quantized", {})
+res = comparison.get("comparison_results", {})
+
 
 # -----------------------------------------------------------------------------
-# TAB 1: Dashboard
+# Sidebar Navigation & Console Status Panel
 # -----------------------------------------------------------------------------
-with tab_dash:
+with st.sidebar:
     st.markdown(
-        '<div class="pipeline-badge">⚡ Pipeline: <b>MNIST</b> → <b>FP32 CNN</b> → <b>INT8 PTQ</b> → <b>INT8 TFLite (13.5 KB)</b> → <b>TinyML C-Array</b></div>',
+        """
+        <div class="brand-box">
+            <div class="brand-title">EDGECORE</div>
+            <div class="brand-subtitle">TinyML Engineering Console</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
-    # Problem / Solution Statement
-    col_p, col_s = st.columns(2)
-    with col_p:
-        st.markdown("##### 🎯 Problem Statement")
-        st.info("Resource-constrained microcontrollers have severe Flash (<256 KB) and SRAM (<64 KB) limits. Conventional FP32 CNNs consume excessive memory and require power-hungry floating-point units.")
-    with col_s:
-        st.markdown("##### 💡 Technical Solution")
-        st.success("Post-Training Quantization (PTQ) compresses weights and activations to 8-bit integers without retraining, reducing model size by 61.10% while preserving 100% of the baseline accuracy.")
+    nav_selection = st.radio(
+        "NAVIGATION",
+        [
+            "◉ OVERVIEW",
+            "◉ LIVE SCANNER",
+            "◉ FP32 → INT8",
+            "◉ RESOURCE LAB",
+            "◉ TINYML VERIFY",
+            "◉ PIPELINE",
+        ],
+        label_visibility="collapsed",
+    )
 
-    st.markdown("---")
-    st.markdown("#### 🏆 Verified Headline Benchmarks")
+    st.markdown(
+        f"""
+        <div class="status-panel">
+            <div class="hud-header">MODEL HEALTH TELEMETRY</div>
+            <div class="status-row">
+                <span style="color: #94A3B8;">MODEL</span>
+                <span style="font-weight: 700; color: #F8FAFC;">INT8 CNN (7.8K)</span>
+            </div>
+            <div class="status-row">
+                <span style="color: #94A3B8;">ACCURACY</span>
+                <span style="color: #A3FF12; font-weight: 700;">{int8_q.get('accuracy_percent', 98.46)}%</span>
+            </div>
+            <div class="status-row">
+                <span style="color: #94A3B8;">FLASH FOOTPRINT</span>
+                <span style="color: #00E5FF; font-weight: 700;">{int8_q.get('size_kb', 13.50)} KB</span>
+            </div>
+            <div class="status-row">
+                <span style="color: #94A3B8;">TENSOR ARENA</span>
+                <span style="color: #FFB020; font-weight: 700;">~14.0 KB*</span>
+            </div>
+            <div class="status-row">
+                <span style="color: #94A3B8;">STATUS</span>
+                <span class="dot-ready">● SYSTEM READY</span>
+            </div>
+        </div>
+        <div style="font-size: 0.68rem; color: #475569; margin-top: 10px; line-height: 1.2;">
+            *Static estimate. Host evaluated. Physical MCU unverified.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+
+# -----------------------------------------------------------------------------
+# Top Persistent Engineering Pipeline Ribbon
+# -----------------------------------------------------------------------------
+step_map = {
+    "◉ OVERVIEW": 1,
+    "◉ LIVE SCANNER": 6,
+    "◉ FP32 → INT8": 4,
+    "◉ RESOURCE LAB": 5,
+    "◉ TINYML VERIFY": 5,
+    "◉ PIPELINE": 3,
+}
+curr_step = step_map.get(nav_selection, 1)
+
+st.markdown(
+    f"""
+    <div class="pipeline-container">
+        <div class="pipeline-step {'verified' if curr_step >= 1 else ''} {'active' if curr_step == 1 else ''}">
+            <span>{'✓' if curr_step > 1 else '◉'}</span> DATA [MNIST]
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step {'verified' if curr_step >= 2 else ''} {'active' if curr_step == 2 else ''}">
+            <span>{'✓' if curr_step > 2 else '◉'}</span> TRAIN [FP32]
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step {'verified' if curr_step >= 3 else ''} {'active' if curr_step == 3 else ''}">
+            <span>{'✓' if curr_step > 3 else '◉'}</span> INT8 PTQ [200 SAMPLES]
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step {'verified' if curr_step >= 4 else ''} {'active' if curr_step == 4 else ''}">
+            <span>{'✓' if curr_step > 4 else '◉'}</span> BENCHMARK [10K TEST]
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step {'verified' if curr_step >= 5 else ''} {'active' if curr_step == 5 else ''}">
+            <span>{'✓' if curr_step > 5 else '◉'}</span> TINYML [C-ARRAY]
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step {'verified' if curr_step >= 6 else ''} {'active' if curr_step == 6 else ''}">
+            <span>{'✓' if curr_step == 6 else '◉'}</span> LIVE INFER
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# -----------------------------------------------------------------------------
+# VIEW 1: OVERVIEW
+# -----------------------------------------------------------------------------
+if nav_selection == "◉ OVERVIEW":
+    st.markdown(
+        """
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 2.4rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; color: #F8FAFC;">
+                FROM FLOATING POINT<br>
+                <span style="background: linear-gradient(90deg, #00E5FF, #7C3AED); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    TO TINY INTELLIGENCE.
+                </span>
+            </div>
+            <div style="font-size: 1.05rem; color: #94A3B8; margin-top: 6px;">
+                End-to-End Post-Training Quantization for Ultra-Low Power Edge Microcontrollers
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Core Transformation Panel
     if has_data:
-        fp32_b = comparison["fp32_baseline"]
-        int8_q = comparison["int8_quantized"]
-        res = comparison["comparison_results"]
+        st.markdown(
+            f"""
+            <div class="transform-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div style="flex: 1; min-width: 220px; background: #0A0C12; border: 1px solid #1E2230; border-radius: 8px; padding: 18px;">
+                        <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 0.1em;">BASELINE FP32 MODEL</div>
+                        <div style="font-size: 1.8rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">{fp32_b.get('size_kb', 34.70)} KB</div>
+                        <div style="font-size: 0.9rem; color: #94A3B8; margin-top: 4px;">Accuracy: <b style="color: #F8FAFC;">{fp32_b.get('accuracy_percent', 98.44)}%</b></div>
+                        <div style="font-size: 0.82rem; color: #64748B;">Latency: {fp32_b.get('latency_mean_ms', 0.0133):.4f} ms (Host CPU)</div>
+                    </div>
+                    <div style="text-align: center; padding: 0 10px;">
+                        <div style="font-size: 1.4rem; color: #7C3AED; font-weight: 900;">⚡ PTQ ➔</div>
+                        <div style="font-size: 0.72rem; color: #00E5FF; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">200 MNIST Samples</div>
+                    </div>
+                    <div style="flex: 1; min-width: 220px; background: #0A0C12; border: 1px solid #7C3AED; border-radius: 8px; padding: 18px; box-shadow: 0 0 20px rgba(124, 58, 237, 0.15);">
+                        <div style="font-size: 0.75rem; font-weight: 800; color: #A78BFA; letter-spacing: 0.1em;">QUANTIZED INT8 MODEL</div>
+                        <div style="font-size: 1.8rem; font-weight: 800; color: #00E5FF; margin-top: 4px;">{int8_q.get('size_kb', 13.50)} KB</div>
+                        <div style="font-size: 0.9rem; color: #94A3B8; margin-top: 4px;">Accuracy: <b style="color: #A3FF12;">{int8_q.get('accuracy_percent', 98.46)}%</b> (Lossless)</div>
+                        <div style="font-size: 0.82rem; color: #64748B;">Latency: {int8_q.get('latency_mean_ms', 0.0098):.4f} ms (Host CPU)</div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
+        # 4 Hero Metrics
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-lbl">Model Size Reduction</div>
-                    <div class="metric-val">{res['size_reduction_percent']}%</div>
-                    <div class="metric-delta delta-pos">{fp32_b['size_kb']} KB → {int8_q['size_kb']} KB</div>
+                <div class="hero-card">
+                    <div class="hero-lbl">FLASH REDUCTION</div>
+                    <div class="hero-val cyan">-{res.get('size_reduction_percent', 61.10)}%</div>
+                    <div class="hero-sub">{res.get('size_reduction_bytes', 21712):,} Bytes saved</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        with col2:
+        with c2:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-lbl">Compression Ratio</div>
-                    <div class="metric-val">{res['compression_ratio']}×</div>
-                    <div class="metric-delta delta-pos">{res['size_reduction_bytes']:,} Bytes Saved</div>
+                <div class="hero-card">
+                    <div class="hero-lbl">COMPRESSION RATIO</div>
+                    <div class="hero-val violet">{res.get('compression_ratio', 2.57)}×</div>
+                    <div class="hero-sub">34.7 KB ➔ 13.5 KB</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        with col3:
+        with c3:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-lbl">INT8 Test Accuracy</div>
-                    <div class="metric-val">{int8_q['accuracy_percent']}%</div>
-                    <div class="metric-delta delta-pos">+{res['accuracy_delta_percentage_points']} pts vs FP32 ({fp32_b['accuracy_percent']}%)</div>
+                <div class="hero-card">
+                    <div class="hero-lbl">ACCURACY PRESERVATION</div>
+                    <div class="hero-val lime">+{res.get('accuracy_delta_percentage_points', 0.02)} pts</div>
+                    <div class="hero-sub">98.44% ➔ 98.46% (10k test)</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        with col4:
+        with c4:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-lbl">Host Mean Latency</div>
-                    <div class="metric-val">{int8_q['latency_mean_ms']} ms</div>
-                    <div class="metric-delta delta-pos">{res['latency_change_percent']}% on CPU</div>
+                <div class="hero-card">
+                    <div class="hero-lbl">HOST CPU SPEEDUP</div>
+                    <div class="hero-val amber">{res.get('latency_change_percent', -26.32)}%</div>
+                    <div class="hero-sub">0.0133 ms ➔ 0.0098 ms</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-    else:
-        st.warning("Benchmark results file not found at results/comparison.json")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🔬 Why INT8 for Edge TinyML?")
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown("**📦 61% Smaller Flash Size**")
-        st.caption("Shrinks the binary down to 13.5 KB so the entire neural network comfortably fits on small embedded Flash.")
-    with c2:
-        st.markdown("**🔢 Integer-Only Arithmetic**")
-        st.caption("Operates entirely using 8-bit integer SIMD ALU instructions, eliminating the requirement for a hardware FPU.")
-    with c3:
-        st.markdown("**⚡ Lower SRAM Footprint**")
-        st.caption("Intermediate activation buffers require 4× less RAM per element compared to 32-bit floats.")
-    with c4:
-        st.markdown("**🎯 Zero Accuracy Degradation**")
-        st.caption("Calibration with real training samples maintains 98.46% test accuracy on 10,000 MNIST test samples.")
+    st.markdown("##### 🔬 Architectural Pillars for Embedded Edge AI")
+    p1, p2, p3 = st.columns(3)
+    with p1:
+        st.markdown(
+            """
+            <div class="hud-card">
+                <div style="font-size: 1.1rem; font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">📦 Flash Footprint</div>
+                <div style="font-size: 0.85rem; color: #94A3B8; line-height: 1.4;">
+                    Compresses the entire CNN FlatBuffer binary down to <b>13.50 KB (13,824 B)</b>, enabling direct storage in tiny on-chip Flash alongside RTOS firmware.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with p2:
+        st.markdown(
+            """
+            <div class="hud-card">
+                <div style="font-size: 1.1rem; font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">🔢 Integer SIMD Arithmetic</div>
+                <div style="font-size: 0.85rem; color: #94A3B8; line-height: 1.4;">
+                    Eliminates all hardware Floating-Point Unit (FPU) dependencies. Computations execute entirely using 8-bit integer SIMD instructions on ARM Cortex-M/ESP32 ALUs.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with p3:
+        st.markdown(
+            """
+            <div class="hud-card">
+                <div style="font-size: 1.1rem; font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">⚡ Minimal Tensor Arena</div>
+                <div style="font-size: 0.85rem; color: #94A3B8; line-height: 1.4;">
+                    Reduces intermediate activation buffers by 4× per element. The analytical TFLite Micro Tensor Arena requires only <b>~14.0 KB</b> of SRAM.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # -----------------------------------------------------------------------------
-# TAB 2: Live Inference
+# VIEW 2: LIVE SCANNER (Inference Cockpit + Canvas)
 # -----------------------------------------------------------------------------
-with tab_infer:
-    st.markdown("#### ⚡ Real-Time INT8 Model Inference")
-    st.caption("Select a genuine MNIST test sample or upload a handwritten digit image to execute live inference with the verified INT8 TFLite model.")
+elif nav_selection == "◉ LIVE SCANNER":
+    st.markdown(
+        """
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                INT8 VISION SCANNER
+            </div>
+            <div style="font-size: 0.9rem; color: #00E5FF; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                REAL-TIME EDGE INFERENCE COCKPIT
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     col_input, col_result = st.columns([1, 1])
 
     with col_input:
-        input_mode = st.radio("Choose Input Source:", ["Sample MNIST Digits", "Upload Image", "Draw Digit (Canvas)"], horizontal=True)
+        st.markdown('<div class="hud-header">INPUT TELEMETRY</div>', unsafe_allow_html=True)
+        input_mode = st.radio(
+            "Select Input Source:",
+            ["Draw Digit (Canvas)", "Sample MNIST Digits", "Upload Image"],
+            horizontal=True,
+            key="scanner_input_mode",
+        )
 
         norm_image: Optional[np.ndarray] = None
         preview_img: Optional[Image.Image] = None
@@ -303,7 +589,7 @@ with tab_infer:
             samples = get_available_sample_images()
             if samples:
                 sample_names = [p.name for p in samples]
-                selected_sample_name = st.selectbox("Select Sample Digit Image:", sample_names)
+                selected_sample_name = st.selectbox("Select Benchmark Sample:", sample_names)
                 selected_path = SAMPLES_DIR / selected_sample_name
                 with open(selected_path, "rb") as f:
                     norm_image, preview_img = preprocess_uploaded_image(f)
@@ -311,20 +597,20 @@ with tab_infer:
                 st.warning("No sample digits found in assets/sample_digits/")
 
         elif input_mode == "Upload Image":
-            uploaded_file = st.file_uploader("Upload handwritten digit (PNG, JPG)", type=["png", "jpg", "jpeg"])
+            uploaded_file = st.file_uploader("Upload digit image (PNG, JPG)", type=["png", "jpg", "jpeg"])
             if uploaded_file is not None:
                 try:
                     norm_image, preview_img = preprocess_uploaded_image(uploaded_file)
                 except Exception as e:
-                    st.error(f"Error processing uploaded image: {e}")
+                    st.error(f"Image processing error: {e}")
 
         elif input_mode == "Draw Digit (Canvas)":
-            st.markdown("Draw a digit (0–9) below with your mouse or touchscreen:")
+            st.caption("Draw a digit (0–9) below using your mouse or touchscreen:")
 
             col_c1, col_c2 = st.columns([3, 1])
             with col_c2:
                 stroke_width = st.slider("Stroke Width:", min_value=12, max_value=32, value=20, step=2)
-                st.caption("Tip: Use bold strokes for clean MNIST preprocessing.")
+                st.caption("Tip: Use bold strokes for clean MNIST centering.")
 
             with col_c1:
                 canvas_result = st_canvas(
@@ -336,10 +622,10 @@ with tab_infer:
                     height=200,
                     width=200,
                     drawing_mode="freedraw",
-                    key="mnist_digit_canvas",
+                    key="scanner_digit_canvas",
                 )
 
-            predict_btn = st.button("🔮 Predict Drawn Digit", type="primary", use_container_width=True)
+            predict_btn = st.button("🔮 Run INT8 Prediction", type="primary", use_container_width=True)
 
             if predict_btn or "drawn_norm_image" in st.session_state:
                 if predict_btn:
@@ -353,7 +639,7 @@ with tab_infer:
                             st.session_state.pop("drawn_norm_image", None)
                             st.session_state.pop("drawn_preview_img", None)
                         except Exception as e:
-                            st.error(f"Canvas processing error: {e}")
+                            st.error(f"Canvas error: {e}")
                     else:
                         st.warning("Please draw a digit before prediction.")
                 elif "drawn_norm_image" in st.session_state and input_mode == "Draw Digit (Canvas)":
@@ -361,44 +647,60 @@ with tab_infer:
                     preview_img = st.session_state.get("drawn_preview_img")
 
         if preview_img is not None:
-            st.image(preview_img, caption="Preprocessed 28×28 Grayscale Input", width=140)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.image(preview_img, caption="Preprocessed 28×28 Grayscale Input (Normalized [0.0, 1.0])", width=140)
 
     with col_result:
-        st.markdown("##### 🎯 INT8 Inference Output")
+        st.markdown('<div class="hud-header">INT8 INFERENCE OUTPUT</div>', unsafe_allow_html=True)
         if norm_image is not None:
             try:
                 interpreter_int8 = get_interpreter("models/model_int8.tflite")
-                res = run_inference(interpreter_int8, norm_image)
+                infer_res = run_inference(interpreter_int8, norm_image)
 
-                pred_digit = res["predicted_digit"]
-                conf = res["confidence"]
-                lat_ms = res["latency_ms"]
+                pred_digit = infer_res["predicted_digit"]
+                conf = infer_res["confidence"]
+                lat_ms = infer_res["latency_ms"]
+                status_label = "CONFIDENT" if conf >= 0.80 else "REVIEW REQUIRED"
+                status_color = "#A3FF12" if conf >= 0.80 else "#FFB020"
 
                 st.markdown(
                     f"""
-                    <div style="background: #1E293B; border: 1px solid #38BDF8; border-radius: 8px; padding: 18px; margin-bottom: 16px;">
-                        <div style="font-size: 0.9rem; color: #94A3B8; text-transform: uppercase;">Predicted Digit</div>
-                        <div style="font-size: 3rem; font-weight: 800; color: #38BDF8;">{pred_digit}</div>
-                        <div style="font-size: 0.95rem; color: #F8FAFC;">Confidence: <b>{conf * 100.0:.2f}%</b> &nbsp;|&nbsp; Latency: <b>{lat_ms:.4f} ms</b></div>
-                        <div style="font-size: 0.8rem; color: #64748B; margin-top: 4px;">Engine: <b>INT8 TFLite</b> (Tensor dtypes: {res['input_dtype']} in / {res['output_dtype']} out)</div>
+                    <div style="background: #11131A; border: 1px solid #7C3AED; border-radius: 10px; padding: 20px; box-shadow: 0 0 25px rgba(124, 58, 237, 0.15);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <div style="font-size: 0.75rem; font-weight: 800; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.1em;">PREDICTED CLASS</div>
+                                <div style="font-size: 4rem; font-weight: 900; line-height: 1; color: #00E5FF; margin: 4px 0 8px 0;">{pred_digit}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.75rem; font-weight: 800; color: #94A3B8; text-transform: uppercase;">CLASSIFICATION STATUS</div>
+                                <div style="font-size: 0.95rem; font-weight: 800; color: {status_color}; margin-top: 4px;">● {status_label}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #1E2230; font-size: 0.88rem;">
+                            <div>Confidence: <b style="color: #A3FF12;">{conf * 100.0:.2f}%</b></div>
+                            <div>Host Latency: <b style="color: #F8FAFC;">{lat_ms:.4f} ms</b></div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #64748B; margin-top: 6px;">
+                            Engine: <b>INT8 TFLite</b> (13.50 KB, int8 in/out, Dynamic affine quantization)
+                        </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
 
                 # Class probabilities distribution chart
-                probs = res["probabilities"]
+                probs = infer_res["probabilities"]
                 fig_prob = go.Figure(
                     go.Bar(
                         x=list(range(10)),
                         y=probs,
-                        marker_color=["#38BDF8" if i == pred_digit else "#334155" for i in range(10)],
-                        text=[f"{p * 100:.1f}%" if p > 0.05 else "" for p in probs],
+                        marker_color=["#00E5FF" if i == pred_digit else "#1E2230" for i in range(10)],
+                        text=[f"{p * 100:.1f}%" if p > 0.04 else "" for p in probs],
                         textposition="auto",
                     )
                 )
                 fig_prob.update_layout(
-                    title="Class Probability Distribution (Digits 0–9)",
+                    title="10-Class Softmax Probability Distribution",
                     xaxis=dict(tickmode="linear", tick0=0, dtick=1, title="Digit Class"),
                     yaxis=dict(title="Probability", range=[0, 1]),
                     height=240,
@@ -412,36 +714,43 @@ with tab_infer:
             except Exception as e:
                 st.error(f"Inference execution failed: {e}")
         else:
-            st.info("Select or upload an image to run INT8 inference.")
+            st.info("Select a sample, upload an image, or draw on the canvas to execute real-time INT8 inference.")
 
 
 # -----------------------------------------------------------------------------
-# TAB 3: Model Analysis
+# VIEW 3: FP32 → INT8 (Transformation & Verification Analytics)
 # -----------------------------------------------------------------------------
-with tab_analysis:
-    st.markdown("#### 📈 Quantitative Model Benchmarks (FP32 vs INT8)")
-    st.caption("Measurements evaluated across the entire 10,000-sample MNIST test set with identical evaluation methodology.")
+elif nav_selection == "◉ FP32 → INT8":
+    st.markdown(
+        """
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                FP32 → INT8 MODEL TRANSFORMATION
+            </div>
+            <div style="font-size: 0.9rem; color: #A78BFA; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                QUANTITATIVE BENCHMARKS OVER 10,000 MNIST TEST SAMPLES
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if has_data:
-        fp32_b = comparison["fp32_baseline"]
-        int8_q = comparison["int8_quantized"]
-        res = comparison["comparison_results"]
-
+        # Visual Comparison Charts
         col_t1, col_t2 = st.columns(2)
 
         with col_t1:
-            # Model Size Chart
             fig_size = go.Figure()
             fig_size.add_trace(go.Bar(
                 name="Model Size (KB)",
-                x=["FP32 TFLite", "INT8 TFLite"],
-                y=[fp32_b["size_kb"], int8_q["size_kb"]],
-                marker_color=["#64748B", "#38BDF8"],
-                text=[f"{fp32_b['size_kb']} KB", f"{int8_q['size_kb']} KB"],
+                x=["FP32 Baseline", "INT8 Quantized"],
+                y=[fp32_b.get("size_kb", 34.70), int8_q.get("size_kb", 13.50)],
+                marker_color=["#334155", "#00E5FF"],
+                text=[f"{fp32_b.get('size_kb', 34.70)} KB", f"{int8_q.get('size_kb', 13.50)} KB"],
                 textposition="auto",
             ))
             fig_size.update_layout(
-                title=f"Flash Storage Size: -{res['size_reduction_percent']}% ({res['compression_ratio']}× Compression)",
+                title=f"Flash Storage Footprint: -{res.get('size_reduction_percent', 61.10)}% ({res.get('compression_ratio', 2.57)}×)",
                 yaxis=dict(title="File Size (KB)"),
                 height=280,
                 margin=dict(l=20, r=20, t=40, b=20),
@@ -452,18 +761,30 @@ with tab_analysis:
             st.plotly_chart(fig_size, use_container_width=True)
 
         with col_t2:
-            # Latency Chart
             fig_lat = go.Figure()
             fig_lat.add_trace(go.Bar(
                 name="Latency (ms)",
                 x=["FP32 Mean", "INT8 Mean", "FP32 Median", "INT8 Median"],
-                y=[fp32_b["latency_mean_ms"], int8_q["latency_mean_ms"], fp32_b["latency_median_ms"], int8_q["latency_median_ms"]],
-                marker_color=["#64748B", "#38BDF8", "#475569", "#0284C7"],
-                text=[f"{v:.4f} ms" for v in [fp32_b["latency_mean_ms"], int8_q["latency_mean_ms"], fp32_b["latency_median_ms"], int8_q["latency_median_ms"]]],
+                y=[
+                    fp32_b.get("latency_mean_ms", 0.0133),
+                    int8_q.get("latency_mean_ms", 0.0098),
+                    fp32_b.get("latency_median_ms", 0.0105),
+                    int8_q.get("latency_median_ms", 0.0097),
+                ],
+                marker_color=["#334155", "#7C3AED", "#1E2230", "#A78BFA"],
+                text=[
+                    f"{v:.4f} ms"
+                    for v in [
+                        fp32_b.get("latency_mean_ms", 0.0133),
+                        int8_q.get("latency_mean_ms", 0.0098),
+                        fp32_b.get("latency_median_ms", 0.0105),
+                        int8_q.get("latency_median_ms", 0.0097),
+                    ]
+                ],
                 textposition="auto",
             ))
             fig_lat.update_layout(
-                title="Single-Sample Inference Latency (Host CPU)",
+                title="Host CPU Single-Sample Latency (time.perf_counter)",
                 yaxis=dict(title="Latency (ms)"),
                 height=280,
                 margin=dict(l=20, r=20, t=40, b=20),
@@ -474,21 +795,19 @@ with tab_analysis:
             st.plotly_chart(fig_lat, use_container_width=True)
 
         st.markdown("##### 📋 Complete Verification Metric Comparison")
-
         table_markdown = f"""
 | Benchmark Dimension | FP32 TFLite Baseline | INT8 TFLite Quantized | Measured Delta / Impact |
 |:---|:---|:---|:---|
-| **Test Accuracy (10,000 Samples)** | `{fp32_b['accuracy_percent']}%` ({fp32_b['correct_predictions']:,} / 10,000) | `{int8_q['accuracy_percent']}%` ({int8_q['correct_predictions']:,} / 10,000) | **`+{res['accuracy_delta_percentage_points']} pts`** (No accuracy loss observed) |
-| **Model File Size** | `{fp32_b['size_bytes']:,} Bytes` ({fp32_b['size_kb']} KB) | `{int8_q['size_bytes']:,} Bytes` ({int8_q['size_kb']} KB) | **`-{res['size_reduction_percent']}%`** ({res['compression_ratio']}× compression) |
-| **Storage Bytes Saved** | Baseline | `{res['size_reduction_bytes']:,} Bytes` | **`21.7 KB saved`** |
-| **Host Mean Latency** | `{fp32_b['latency_mean_ms']:.4f} ms` | `{int8_q['latency_mean_ms']:.4f} ms` | **`{res['latency_change_percent']}%`** (`{res['latency_difference_ms']:.4f} ms`) |
-| **Host Median Latency** | `{fp32_b['latency_median_ms']:.4f} ms` | `{int8_q['latency_median_ms']:.4f} ms` | `-7.62%` |
-| **Host Latency Range (Min–Max)**| `{fp32_b['latency_min_ms']:.4f} – {fp32_b['latency_max_ms']:.4f} ms` | `{int8_q['latency_min_ms']:.4f} – {int8_q['latency_max_ms']:.4f} ms` | Lower standard deviation (`{int8_q['latency_std_ms']:.4f}` vs `{fp32_b['latency_std_ms']:.4f}`) |
+| **Test Accuracy (10,000 Samples)** | `{fp32_b.get('accuracy_percent', 98.44)}%` ({fp32_b.get('correct_predictions', 9844):,} / 10,000) | `{int8_q.get('accuracy_percent', 98.46)}%` ({int8_q.get('correct_predictions', 9846):,} / 10,000) | **`+{res.get('accuracy_delta_percentage_points', 0.02)} pts`** (No accuracy loss observed) |
+| **Model File Size** | `{fp32_b.get('size_bytes', 35536):,} Bytes` ({fp32_b.get('size_kb', 34.70)} KB) | `{int8_q.get('size_bytes', 13824):,} Bytes` ({int8_q.get('size_kb', 13.50)} KB) | **`-{res.get('size_reduction_percent', 61.10)}%`** ({res.get('compression_ratio', 2.57)}× compression) |
+| **Storage Bytes Saved** | Baseline | `{res.get('size_reduction_bytes', 21712):,} Bytes` | **`21.2 KB Flash saved`** |
+| **Host Mean Latency** | `{fp32_b.get('latency_mean_ms', 0.0133):.4f} ms` | `{int8_q.get('latency_mean_ms', 0.0098):.4f} ms` | **`{res.get('latency_change_percent', -26.32)}%`** (`{res.get('latency_difference_ms', -0.0035):.4f} ms`) |
+| **Host Median Latency** | `{fp32_b.get('latency_median_ms', 0.0105):.4f} ms` | `{int8_q.get('latency_median_ms', 0.0097):.4f} ms` | `-7.62%` |
+| **Host Latency Range (Min–Max)**| `{fp32_b.get('latency_min_ms', 0.008):.4f} – {fp32_b.get('latency_max_ms', 0.05):.4f} ms` | `{int8_q.get('latency_min_ms', 0.007):.4f} – {int8_q.get('latency_max_ms', 0.04):.4f} ms` | Lower standard deviation (`{int8_q.get('latency_std_ms', 0.002):.4f}` vs `{fp32_b.get('latency_std_ms', 0.004):.4f}`) |
 | **Input / Output Datatypes** | `float32` in / `float32` out | `int8` in / `int8` out | **Full-Integer Quantization** |
 | **Hardware FPU Requirement** | Required for FP operations | **None** (Integer SIMD ALU) | **TinyML MCU Ready** |
 """
         st.markdown(table_markdown)
-
         st.info("ℹ️ **Measurement Note**: Latency metrics reflect single-sample execution measured on the host development environment (CPU). Microcontroller execution cycles will vary depending on MCU clock speed and instruction set architecture.")
 
         # --- Confusion Matrix Section ---
@@ -549,7 +868,7 @@ with tab_analysis:
                     title=f"FP32 TFLite ({cm_data['fp32']['correct_predictions']:,} / 10,000 Correct)",
                     xaxis=dict(title="Predicted Digit", tickmode="linear", dtick=1),
                     yaxis=dict(title="Actual Digit", tickmode="linear", dtick=1, autorange="reversed"),
-                    height=420,
+                    height=400,
                     margin=dict(l=40, r=20, t=50, b=40),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
@@ -575,7 +894,7 @@ with tab_analysis:
                     title=f"INT8 TFLite ({cm_data['int8']['correct_predictions']:,} / 10,000 Correct)",
                     xaxis=dict(title="Predicted Digit", tickmode="linear", dtick=1),
                     yaxis=dict(title="Actual Digit", tickmode="linear", dtick=1, autorange="reversed"),
-                    height=420,
+                    height=400,
                     margin=dict(l=40, r=20, t=50, b=40),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
@@ -599,48 +918,26 @@ with tab_analysis:
 
 
 # -----------------------------------------------------------------------------
-# TAB 4: TinyML Verification
+# VIEW 4: RESOURCE LAB (Hardware Memory Cockpit)
 # -----------------------------------------------------------------------------
-with tab_tinyml:
-    st.markdown("#### 🎛️ Embedded TinyML Preparation & Verification")
-    st.caption("Inspection of the quantized INT8 graph structure, TFLite Micro operator support, and C-array export.")
+elif nav_selection == "◉ RESOURCE LAB":
+    st.markdown(
+        """
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                TINYML RESOURCE LAB
+            </div>
+            <div style="font-size: 0.9rem; color: #00E5FF; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                HARDWARE MEMORY BUDGET COCKPIT & FEASIBILITY CHECKER
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if tinyml_analysis and "verified" in tinyml_analysis:
         ver = tinyml_analysis["verified"]
         est = tinyml_analysis["estimated"]
-        not_ver = tinyml_analysis["not_verified"]
-
-        col_v, col_e, col_nv = st.columns(3)
-
-        with col_v:
-            st.markdown("##### 🟢 1. Verified (Static Inspection)")
-            st.markdown(f"- **Flash Storage Footprint**: `{ver['flash_storage_bytes']:,} Bytes` ({ver['flash_storage_kb']} KB)")
-            st.markdown(f"- **Input Tensor**: `{ver['input_tensor']['shape']}` (`{ver['input_tensor']['dtype']}`, {ver['input_tensor']['size_bytes']} B)")
-            st.markdown(f"- **Output Tensor**: `{ver['output_tensor']['shape']}` (`{ver['output_tensor']['dtype']}`, {ver['output_tensor']['size_bytes']} B)")
-            st.markdown(f"- **Total Tensors in Graph**: `{ver['total_tensor_count']}`")
-            st.markdown(f"- **C-Array Binary Parity**: `100% Byte-for-Byte Match`")
-            st.markdown(f"- **TFLM Built-in Op Support**: `All 5 Ops Supported`")
-
-        with col_e:
-            st.markdown("##### 🟡 2. Estimated (Runtime Memory)")
-            st.markdown(f"- **Input Buffer RAM**: `{est['input_buffer_bytes']} Bytes`")
-            st.markdown(f"- **Peak Activation Buffer**: `{est['largest_single_activation_bytes']:,} Bytes`")
-            st.markdown(f"- **Estimated Tensor Arena RAM**: **`{est['estimated_tensor_arena_kb']} KB`** (`{est['estimated_tensor_arena_bytes']:,} Bytes`)")
-            st.caption(f"_{est['estimation_methodology']}_")
-
-        with col_nv:
-            st.markdown("##### ⚪ 3. Not Verified (Explicit Boundaries)")
-            st.markdown(f"- **Physical MCU Flashing**: `Not Executed`")
-            st.markdown(f"- **Hardware Clock Cycles**: `Not Measured`")
-            st.markdown(f"- **Hardware Power/Current Draw**: `Not Measured`")
-            st.caption("_Hardware execution was evaluated on host simulation/TFLite runtime; physical microcontroller targets (e.g. STM32, ESP32) were not flashed in this software environment._")
-
-        st.markdown("---")
-        st.markdown("##### 🧮 Static TinyML Resource Budget Checker")
-        st.caption(
-            "Interactively evaluate whether the verified INT8 model fits within your target microcontroller's Flash and SRAM budgets. "
-            "Model Flash is verified from binary; Tensor Arena RAM is an analytical projection."
-        )
 
         mcu_presets = {
             "Standard TinyML (32 KB Flash / 32 KB RAM)": (32.0, 32.0),
@@ -656,31 +953,31 @@ with tab_tinyml:
         col_preset, col_flash_in, col_ram_in = st.columns([2, 1, 1])
         with col_preset:
             selected_preset = st.selectbox(
-                "Target MCU Preset:",
+                "Target MCU Hardware Profile:",
                 list(mcu_presets.keys()),
                 index=0,
-                key="mcu_preset_select",
+                key="resource_lab_preset",
             )
             def_flash, def_ram = mcu_presets[selected_preset]
 
         with col_flash_in:
             avail_flash_kb = st.number_input(
-                "Available Flash (KB):",
+                "Target Flash Budget (KB):",
                 min_value=1.0,
                 max_value=16384.0,
                 value=float(def_flash),
                 step=8.0,
-                key=f"flash_input_{selected_preset}",
+                key=f"flash_input_lab_{selected_preset}",
             )
 
         with col_ram_in:
             avail_ram_kb = st.number_input(
-                "Available RAM (KB):",
+                "Target RAM Budget (KB):",
                 min_value=1.0,
                 max_value=4096.0,
                 value=float(def_ram),
                 step=4.0,
-                key=f"ram_input_{selected_preset}",
+                key=f"ram_input_lab_{selected_preset}",
             )
 
         budget_res = evaluate_memory_budget(
@@ -693,9 +990,9 @@ with tab_tinyml:
         col_b_flash, col_b_ram = st.columns(2)
 
         with col_b_flash:
-            flash_border = "#10B981" if budget_res["flash_fits"] else "#EF4444"
-            flash_badge = "✅ FITS" if budget_res["flash_fits"] else "❌ DOES NOT FIT"
-            flash_text_color = "#10B981" if budget_res["flash_fits"] else "#EF4444"
+            flash_border = "#A3FF12" if budget_res["flash_fits"] else "#EF4444"
+            flash_badge = "✓ FITS" if budget_res["flash_fits"] else "✕ DOES NOT FIT"
+            flash_text_color = "#A3FF12" if budget_res["flash_fits"] else "#EF4444"
             flash_headroom_str = (
                 f"Headroom: {budget_res['flash_headroom_kb']:.1f} KB remaining"
                 if budget_res["flash_fits"]
@@ -703,13 +1000,13 @@ with tab_tinyml:
             )
             st.markdown(
                 f"""
-                <div style="background: #1E293B; border: 1px solid {flash_border}; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <div style="background: #11131A; border: 1px solid {flash_border}; border-radius: 8px; padding: 18px; margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 700; font-size: 1.1rem; color: #F8FAFC;">📦 Flash / ROM Budget</span>
-                        <span style="font-weight: 700; font-size: 0.95rem; color: {flash_text_color};">{flash_badge}</span>
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #F8FAFC;">📦 Flash / ROM Budget</span>
+                        <span style="font-weight: 800; font-size: 0.95rem; color: {flash_text_color};">{flash_badge}</span>
                     </div>
                     <div style="font-size: 0.9rem; color: #94A3B8;">Available Flash: <b style="color: #F8FAFC;">{budget_res['available_flash_kb']:.1f} KB</b></div>
-                    <div style="font-size: 0.9rem; color: #94A3B8;">INT8 Model Footprint: <b style="color: #38BDF8;">{budget_res['model_flash_kb']:.2f} KB</b> ({budget_res['model_flash_bytes']:,} B)</div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">INT8 Model Footprint: <b style="color: #00E5FF;">{budget_res['model_flash_kb']:.2f} KB</b> ({budget_res['model_flash_bytes']:,} B)</div>
                     <div style="font-size: 0.9rem; color: #94A3B8;">Flash Utilization: <b style="color: {flash_text_color};">{budget_res['flash_usage_pct']:.1f}%</b></div>
                     <div style="font-size: 0.85rem; color: #64748B; margin-top: 6px;">{flash_headroom_str}</div>
                 </div>
@@ -720,9 +1017,9 @@ with tab_tinyml:
             st.progress(flash_bar_pct, text=f"Flash Allocation: {budget_res['flash_usage_pct']:.1f}%")
 
         with col_b_ram:
-            ram_border = "#10B981" if budget_res["ram_fits"] else "#EF4444"
-            ram_badge = "✅ FITS" if budget_res["ram_fits"] else "❌ DOES NOT FIT"
-            ram_text_color = "#10B981" if budget_res["ram_fits"] else "#EF4444"
+            ram_border = "#A3FF12" if budget_res["ram_fits"] else "#EF4444"
+            ram_badge = "✓ FITS" if budget_res["ram_fits"] else "✕ DOES NOT FIT"
+            ram_text_color = "#A3FF12" if budget_res["ram_fits"] else "#EF4444"
             ram_headroom_str = (
                 f"Headroom: ~{budget_res['ram_headroom_kb']:.1f} KB remaining"
                 if budget_res["ram_fits"]
@@ -730,13 +1027,13 @@ with tab_tinyml:
             )
             st.markdown(
                 f"""
-                <div style="background: #1E293B; border: 1px solid {ram_border}; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                <div style="background: #11131A; border: 1px solid {ram_border}; border-radius: 8px; padding: 18px; margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 700; font-size: 1.1rem; color: #F8FAFC;">⚡ RAM / SRAM Budget</span>
-                        <span style="font-weight: 700; font-size: 0.95rem; color: {ram_text_color};">{ram_badge}</span>
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #F8FAFC;">⚡ RAM / SRAM Budget</span>
+                        <span style="font-weight: 800; font-size: 0.95rem; color: {ram_text_color};">{ram_badge}</span>
                     </div>
                     <div style="font-size: 0.9rem; color: #94A3B8;">Available RAM: <b style="color: #F8FAFC;">{budget_res['available_ram_kb']:.1f} KB</b></div>
-                    <div style="font-size: 0.9rem; color: #94A3B8;">Estimated Tensor Arena: <b style="color: #F59E0B;">~{budget_res['estimated_arena_kb']:.1f} KB</b> ({budget_res['estimated_arena_bytes']:,} B)</div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">Estimated Tensor Arena: <b style="color: #FFB020;">~{budget_res['estimated_arena_kb']:.1f} KB</b> ({budget_res['estimated_arena_bytes']:,} B)</div>
                     <div style="font-size: 0.9rem; color: #94A3B8;">RAM Utilization: <b style="color: {ram_text_color};">~{budget_res['ram_usage_pct']:.1f}%</b></div>
                     <div style="font-size: 0.85rem; color: #64748B; margin-top: 6px;">{ram_headroom_str}</div>
                 </div>
@@ -747,25 +1044,108 @@ with tab_tinyml:
             st.progress(ram_bar_pct, text=f"RAM Allocation: ~{budget_res['ram_usage_pct']:.1f}%")
 
         if budget_res["fits_overall"]:
-            st.success(f"🎯 **Target Compatible**: {budget_res['explanation']}")
+            st.success(f"🎯 **SYSTEM STATUS: ✓ DEPLOYMENT FEASIBLE*** — {budget_res['explanation']}")
         else:
-            st.error(f"⚠️ **Target Incompatible**: {budget_res['explanation']}")
+            st.error(f"⚠️ **SYSTEM STATUS: ✕ INSUFFICIENT MEMORY** — {budget_res['explanation']}")
 
         st.markdown(
             """
-            <div style="background: #0F172A; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-size: 0.82rem; color: #94A3B8; margin-top: 8px; margin-bottom: 16px;">
-                <b>Detailed Memory Breakdown & Boundary Notes:</b><br>
-                • <b>Flash (Verified)</b>: INT8 FlatBuffer model is exactly <b>13,824 bytes (13.50 KB)</b>. <i>(Application firmware / MCU driver code overhead not included)</i><br>
-                • <b>RAM (Estimated)</b>: Input buffer = <b>784 B</b>, Largest single activation = <b>5,408 B</b>, TFLM Tensor Arena projection = <b>~14.0 KB</b>. <i>(Microcontroller stack / RTOS heap overhead not included)</i>
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 14px; font-size: 0.82rem; color: #94A3B8; margin-top: 10px;">
+                <b>Resource Telemetry Breakdown:</b><br>
+                • <b>Flash (Verified from binary)</b>: INT8 FlatBuffer model is exactly <b>13,824 bytes (13.50 KB)</b>. <i>(Application firmware & MCU driver code overhead not included)</i><br>
+                • <b>RAM (Analytical Projection)</b>: Input buffer = <b>784 B</b>, Largest activation = <b>5,408 B</b>, TFLM Tensor Arena = <b>~14.0 KB</b>. <i>(RTOS heap & call stack overhead not included)</i><br>
+                • <i>*Static resource estimate. Physical MCU deployment not verified.</i>
             </div>
             """,
             unsafe_allow_html=True,
         )
+    else:
+        st.error("TinyML model analysis file not found at tinyml/model_analysis.json")
 
-        st.markdown("---")
-        st.markdown("##### 🧱 TFLite Micro Supported Operators")
+
+# -----------------------------------------------------------------------------
+# VIEW 5: TINYML VERIFY
+# -----------------------------------------------------------------------------
+elif nav_selection == "◉ TINYML VERIFY":
+    st.markdown(
+        """
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                TINYML VERIFICATION
+            </div>
+            <div style="font-size: 0.9rem; color: #A3FF12; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                STATIC GRAPH AUDIT & EMBEDDED C-ARRAY VERIFICATION
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if tinyml_analysis and "verified" in tinyml_analysis:
+        ver = tinyml_analysis["verified"]
+        est = tinyml_analysis["estimated"]
+        not_ver = tinyml_analysis["not_verified"]
+
+        col_v, col_e, col_nv = st.columns(3)
+
+        with col_v:
+            st.markdown(
+                f"""
+                <div style="background: #11131A; border: 1px solid #A3FF12; border-radius: 8px; padding: 16px; height: 100%;">
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #A3FF12; margin-bottom: 8px;">🟢 1. VERIFIED (STATIC AUDIT)</div>
+                    <div style="font-size: 0.85rem; color: #CBD5E1; line-height: 1.6;">
+                        ✓ <b>INT8 Model Binary</b>: 13.50 KB ({ver['flash_storage_bytes']:,} B)<br>
+                        ✓ <b>Input Tensor</b>: {ver['input_tensor']['shape']} ({ver['input_tensor']['dtype']}, 784 B)<br>
+                        ✓ <b>Output Tensor</b>: {ver['output_tensor']['shape']} ({ver['output_tensor']['dtype']}, 10 B)<br>
+                        ✓ <b>Total Graph Tensors</b>: {ver['total_tensor_count']}<br>
+                        ✓ <b>C-Array Binary Parity</b>: 100% Byte Match<br>
+                        ✓ <b>TFLM Built-in Ops</b>: All 5 Ops Supported
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with col_e:
+            st.markdown(
+                f"""
+                <div style="background: #11131A; border: 1px solid #FFB020; border-radius: 8px; padding: 16px; height: 100%;">
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #FFB020; margin-bottom: 8px;">🟡 2. ESTIMATED (RUNTIME PROJECTION)</div>
+                    <div style="font-size: 0.85rem; color: #CBD5E1; line-height: 1.6;">
+                        ⚠ <b>Input Buffer RAM</b>: {est['input_buffer_bytes']} Bytes<br>
+                        ⚠ <b>Peak Activation RAM</b>: {est['largest_single_activation_bytes']:,} Bytes<br>
+                        ⚠ <b>Tensor Arena Projection</b>: <b>~{est['estimated_tensor_arena_kb']} KB</b> ({est['estimated_tensor_arena_bytes']:,} B)<br>
+                        <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 6px;">
+                            <i>{est['estimation_methodology']}</i>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with col_nv:
+            st.markdown(
+                """
+                <div style="background: #11131A; border: 1px solid #64748B; border-radius: 8px; padding: 16px; height: 100%;">
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #94A3B8; margin-bottom: 8px;">⚪ 3. NOT VERIFIED (BOUNDARIES)</div>
+                    <div style="font-size: 0.85rem; color: #94A3B8; line-height: 1.6;">
+                        ✕ <b>Physical MCU Flashing</b>: Not Executed<br>
+                        ✕ <b>Hardware Clock Cycles</b>: Not Measured<br>
+                        ✕ <b>Hardware Power/Current Draw</b>: Not Measured<br>
+                        <div style="font-size: 0.72rem; color: #64748B; margin-top: 6px;">
+                            <i>Evaluated via host simulation / TFLite runtime. Target hardware boards were not physically flashed.</i>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("##### 🧱 TFLite Micro Compatible Operators")
         ops_df = [
-            {"Operator": op["operator"], "TFLM Builtin Support": "✅ Supported" if op["supported_in_tflm"] else "❌ Unsupported", "Notes": op["notes"]}
+            {"Operator": op["operator"], "TFLM Support": "✅ Builtin Supported" if op["supported_in_tflm"] else "❌ Unsupported", "Notes": op["notes"]}
             for op in ver["tflite_micro_compatible_ops"]
         ]
         st.table(ops_df)
@@ -780,21 +1160,33 @@ with tab_tinyml:
 
 
 # -----------------------------------------------------------------------------
-# TAB 5: How It Works
+# VIEW 6: PIPELINE
 # -----------------------------------------------------------------------------
-with tab_how:
-    st.markdown("#### 📖 How INT8 Post-Training Quantization Works")
+elif nav_selection == "◉ PIPELINE":
+    st.markdown(
+        """
+        <div style="margin-bottom: 18px;">
+            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                PIPELINE ARCHITECTURE & QUANTIZATION MATHEMATICS
+            </div>
+            <div style="font-size: 0.9rem; color: #7C3AED; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                END-TO-END EMBEDDED CONVERSION PROTOCOL
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown(
         """
-        ##### 1. The Core TinyML Challenge
-        Standard Convolutional Neural Networks are trained with 32-bit floating-point (`float32`) arithmetic. While highly accurate, FP32 models introduce major bottlenecks on low-power edge devices:
-        - **Storage Constraints**: A typical microcontroller has 64 KB – 512 KB of Flash memory.
-        - **RAM Constraints**: Microcontrollers feature only 16 KB – 128 KB of SRAM.
-        - **Computational Overhead**: Many ultra-low-power microcontrollers (e.g., ARM Cortex-M0/M3) lack a hardware Floating Point Unit (FPU), making software-emulated float calculations slow and power-inefficient.
+        ##### 1. The TinyML Edge Constraint
+        Standard deep learning pipelines train CNNs with 32-bit floating-point (`float32`) arithmetic. While accurate, FP32 models introduce severe deployment bottlenecks on edge microcontrollers:
+        - **Flash Storage Limits**: Microcontrollers typically possess between 64 KB and 512 KB of Flash memory.
+        - **SRAM Limits**: Embedded systems offer only 16 KB to 128 KB of SRAM.
+        - **Floating-Point Emulation**: Ultra-low-power microcontrollers (e.g. ARM Cortex-M0/M3) lack a hardware FPU, making software float calculations slow and energy-prohibitive.
 
-        ##### 2. Post-Training Integer Quantization (PTQ)
-        Post-Training Quantization maps 32-bit floating-point numbers $r \in [\min, \max]$ onto 8-bit signed integers $q \in [-128, 127]$ through linear affine transformation:
+        ##### 2. Post-Training Integer Quantization (PTQ) Mathematics
+        PTQ maps real continuous floating-point numbers $r \in [r_{\min}, r_{\max}]$ onto 8-bit signed integers $q \in [-128, 127]$ through a linear affine transformation:
 
         $$\\text{Quantize: } q = \\text{clip}\\left(\\left\\lfloor \\frac{r}{S} \\right\\rceil + Z, -128, 127\\right)$$
 
@@ -802,28 +1194,28 @@ with tab_how:
 
         Where:
         - **$S$ (Scale)**: Positive float representing the step size per integer quantum ($S = \\frac{r_{\\max} - r_{\\min}}{q_{\\max} - q_{\\min}}$).
-        - **$Z$ (Zero-Point)**: Integer offset corresponding to the real value `0.0` to guarantee exact zero-padding without numerical error.
+        - **$Z$ (Zero-Point)**: Integer offset corresponding exactly to the real value `0.0` to ensure zero-padding is mathematically lossless.
 
         ##### 3. Calibration with Representative Dataset
-        Because activation dynamic ranges cannot be determined from weights alone, a **Representative Dataset** consisting of 200 real MNIST training samples is fed through the network during quantization. The calibration engine records the activation distributions across every layer to compute optimal scale factors and zero-points.
+        Because activation dynamic ranges cannot be deduced from static weights alone, a **Representative Dataset** of 200 real MNIST training samples is piped through the network during quantization. The calibration engine records intermediate activation distributions across all convolutional and dense layers to determine optimal scale factors and zero-points.
 
-        ##### 4. End-to-End Edge Deployment Flow
+        ##### 4. End-to-End Pipeline Workflow
         ```text
-        [MNIST Dataset] ──► [Lightweight CNN Training] ──► [model_fp32.keras (131 KB)]
-                                                                  │
-                                                        [TFLite Conversion]
-                                                                  ▼
-                                                      [model_fp32.tflite (34.7 KB)]
-                                                                  │
-                                                      [PTQ + Calibration Gen]
-                                                                  ▼
-                                                      [model_int8.tflite (13.5 KB)]
-                                                                  │
-                                                      [C Array Export Tool]
-                                                                  ▼
-                                                      [tinyml/model_data.h & .cc]
-                                                                  │
-                                                      [TFLite Micro Runtime on MCU]
+        [MNIST Dataset (28x28)] ──► [Lightweight CNN Training] ──► [model_fp32.keras (131 KB)]
+                                                                           │
+                                                                 [TFLite FlatBuffer]
+                                                                           ▼
+                                                               [model_fp32.tflite (34.7 KB)]
+                                                                           │
+                                                               [PTQ + 200 Real Samples]
+                                                                           ▼
+                                                               [model_int8.tflite (13.5 KB)]
+                                                                           │
+                                                               [C-Array Hex Exporter]
+                                                                           ▼
+                                                               [tinyml/model_data.h & .cc]
+                                                                           │
+                                                               [TFLite Micro Runtime on MCU]
         ```
         """
     )
