@@ -1,0 +1,56 @@
+{
+  "benchmark_environment": {
+    "os": "Windows",
+    "os_release": "10",
+    "processor": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+    "python_version": "3.10.0",
+    "tensorflow_version": "2.17.1",
+    "device_type": "Host Development Environment (CPU)"
+  },
+  "dataset": "MNIST Test Set (10,000 samples)",
+  "methodology": {
+    "test_samples": 10000,
+    "warmup_runs": 20,
+    "latency_timed_runs": 100,
+    "timer": "time.perf_counter()",
+    "notes": "Single-sample inference measured on development host CPU. Does not represent specialized MCU hardware cycle counts."
+  },
+  "fp32_baseline": {
+    "model_format": "TFLite (FP32)",
+    "accuracy": 0.9844,
+    "accuracy_percent": 98.44,
+    "correct_predictions": 9844,
+    "total_samples": 10000,
+    "size_bytes": 35536,
+    "size_kb": 34.7,
+    "latency_mean_ms": 0.0133,
+    "latency_median_ms": 0.0105,
+    "latency_std_ms": 0.0127,
+    "latency_min_ms": 0.0103,
+    "latency_max_ms": 0.1204
+  },
+  "int8_quantized": {
+    "model_format": "TFLite (INT8 PTQ)",
+    "accuracy": 0.9846,
+    "accuracy_percent": 98.46,
+    "correct_predictions": 9846,
+    "total_samples": 10000,
+    "size_bytes": 13824,
+    "size_kb": 13.5,
+    "latency_mean_ms": 0.0098,
+    "latency_median_ms": 0.0097,
+    "latency_std_ms": 0.0012,
+    "latency_min_ms": 0.0095,
+    "latency_max_ms": 0.0219
+  },
+  "comparison_results": {
+    "size_reduction_bytes": 21712,
+    "size_reduction_percent": 61.1,
+    "compression_ratio": 2.57,
+    "accuracy_delta": 0.0002,
+    "accuracy_delta_percentage_points": 0.02,
+    "accuracy_preservation_percent": 100.02,
+    "latency_difference_ms": -0.0035,
+    "latency_change_percent": -26.32
+  }
+}

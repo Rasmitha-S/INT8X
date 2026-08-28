@@ -1,0 +1,371 @@
+{
+  "verified": {
+    "model_path": "models/model_int8.tflite",
+    "flash_storage_bytes": 13824,
+    "flash_storage_kb": 13.5,
+    "input_tensor": {
+      "name": "serving_default_input_image:0",
+      "shape": [
+        1,
+        28,
+        28,
+        1
+      ],
+      "dtype": "int8",
+      "size_bytes": 784
+    },
+    "output_tensor": {
+      "name": "StatefulPartitionedCall_1:0",
+      "shape": [
+        1,
+        10
+      ],
+      "dtype": "int8",
+      "size_bytes": 10
+    },
+    "total_tensor_count": 23,
+    "tflite_micro_compatible_ops": [
+      {
+        "operator": "CONV_2D",
+        "supported_in_tflm": true,
+        "notes": "Standard TFLM 2D Convolution integer kernel"
+      },
+      {
+        "operator": "MAX_POOL_2D",
+        "supported_in_tflm": true,
+        "notes": "Standard TFLM 2D Max Pooling integer kernel"
+      },
+      {
+        "operator": "RESHAPE",
+        "supported_in_tflm": true,
+        "notes": "Standard TFLM Reshape/Flatten integer kernel"
+      },
+      {
+        "operator": "FULLY_CONNECTED",
+        "supported_in_tflm": true,
+        "notes": "Standard TFLM Fully Connected (Dense) integer kernel"
+      },
+      {
+        "operator": "SOFTMAX",
+        "supported_in_tflm": true,
+        "notes": "Standard TFLM Softmax integer kernel"
+      }
+    ],
+    "all_ops_supported_in_tflm": true
+  },
+  "estimated": {
+    "input_buffer_bytes": 784,
+    "largest_single_activation_bytes": 5408,
+    "estimated_tensor_arena_bytes": 14336,
+    "estimated_tensor_arena_kb": 14.0,
+    "estimation_methodology": "Calculated based on maximum concurrent intermediate tensor allocations (Conv2D Layer 1: 5,408 B + Input Buffer: 784 B) plus TFLite Micro runtime tensor metadata overhead."
+  },
+  "not_verified": {
+    "physical_mcu_deployment": false,
+    "physical_mcu_cycle_count": null,
+    "physical_mcu_ram_measured": null,
+    "physical_mcu_flash_measured": null,
+    "notes": "Physical execution on specific hardware boards (e.g. STM32 / ESP32 / Cortex-M4) was not executed in this software environment."
+  },
+  "tensor_details": [
+    {
+      "index": 0,
+      "name": "serving_default_input_image:0",
+      "shape": [
+        1,
+        28,
+        28,
+        1
+      ],
+      "dtype": "int8",
+      "size_bytes": 784,
+      "quantized": true,
+      "scale": 0.003921568859368563,
+      "zero_point": -128
+    },
+    {
+      "index": 1,
+      "name": "arith.constant",
+      "shape": [
+        1
+      ],
+      "dtype": "int32",
+      "size_bytes": 4,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 2,
+      "name": "arith.constant1",
+      "shape": [
+        1
+      ],
+      "dtype": "int32",
+      "size_bytes": 4,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 3,
+      "name": "arith.constant2",
+      "shape": [],
+      "dtype": "int32",
+      "size_bytes": 4,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 4,
+      "name": "tfl.pseudo_qconst",
+      "shape": [
+        10
+      ],
+      "dtype": "int32",
+      "size_bytes": 40,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 5,
+      "name": "tfl.pseudo_qconst1",
+      "shape": [
+        10,
+        16
+      ],
+      "dtype": "int8",
+      "size_bytes": 160,
+      "quantized": true,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 6,
+      "name": "tfl.pseudo_qconst2",
+      "shape": [
+        16
+      ],
+      "dtype": "int32",
+      "size_bytes": 64,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 7,
+      "name": "tfl.pseudo_qconst3",
+      "shape": [
+        16,
+        400
+      ],
+      "dtype": "int8",
+      "size_bytes": 6400,
+      "quantized": true,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 8,
+      "name": "tfl.pseudo_qconst4",
+      "shape": [
+        16
+      ],
+      "dtype": "int32",
+      "size_bytes": 64,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 9,
+      "name": "tfl.pseudo_qconst5",
+      "shape": [
+        16,
+        3,
+        3,
+        8
+      ],
+      "dtype": "int8",
+      "size_bytes": 1152,
+      "quantized": true,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 10,
+      "name": "tfl.pseudo_qconst6",
+      "shape": [
+        8
+      ],
+      "dtype": "int32",
+      "size_bytes": 32,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 11,
+      "name": "tfl.pseudo_qconst7",
+      "shape": [
+        8,
+        3,
+        3,
+        1
+      ],
+      "dtype": "int8",
+      "size_bytes": 72,
+      "quantized": true,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 12,
+      "name": "tiny_mnist_cnn_1/conv2d_1_1/Relu;tiny_mnist_cnn_1/conv2d_1_1/BiasAdd;tiny_mnist_cnn_1/conv2d_1_1/convolution;1",
+      "shape": [
+        1,
+        26,
+        26,
+        8
+      ],
+      "dtype": "int8",
+      "size_bytes": 5408,
+      "quantized": true,
+      "scale": 0.007394291926175356,
+      "zero_point": -128
+    },
+    {
+      "index": 13,
+      "name": "tiny_mnist_cnn_1/max_pool_1_1/MaxPool2d",
+      "shape": [
+        1,
+        13,
+        13,
+        8
+      ],
+      "dtype": "int8",
+      "size_bytes": 1352,
+      "quantized": true,
+      "scale": 0.007394291926175356,
+      "zero_point": -128
+    },
+    {
+      "index": 14,
+      "name": "tiny_mnist_cnn_1/conv2d_2_1/Relu;tiny_mnist_cnn_1/conv2d_2_1/BiasAdd;tiny_mnist_cnn_1/conv2d_2_1/convolution;",
+      "shape": [
+        1,
+        11,
+        11,
+        16
+      ],
+      "dtype": "int8",
+      "size_bytes": 1936,
+      "quantized": true,
+      "scale": 0.025038670748472214,
+      "zero_point": -128
+    },
+    {
+      "index": 15,
+      "name": "tiny_mnist_cnn_1/max_pool_2_1/MaxPool2d",
+      "shape": [
+        1,
+        5,
+        5,
+        16
+      ],
+      "dtype": "int8",
+      "size_bytes": 400,
+      "quantized": true,
+      "scale": 0.025038670748472214,
+      "zero_point": -128
+    },
+    {
+      "index": 16,
+      "name": "tiny_mnist_cnn_1/flatten_1/Shape",
+      "shape": [
+        4
+      ],
+      "dtype": "int32",
+      "size_bytes": 16,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 17,
+      "name": "tiny_mnist_cnn_1/flatten_1/strided_slice",
+      "shape": [],
+      "dtype": "int32",
+      "size_bytes": 4,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 18,
+      "name": "tiny_mnist_cnn_1/flatten_1/Reshape/shape",
+      "shape": [
+        2
+      ],
+      "dtype": "int32",
+      "size_bytes": 8,
+      "quantized": false,
+      "scale": 0.0,
+      "zero_point": 0
+    },
+    {
+      "index": 19,
+      "name": "tiny_mnist_cnn_1/flatten_1/Reshape",
+      "shape": [
+        1,
+        400
+      ],
+      "dtype": "int8",
+      "size_bytes": 400,
+      "quantized": true,
+      "scale": 0.025038670748472214,
+      "zero_point": -128
+    },
+    {
+      "index": 20,
+      "name": "tiny_mnist_cnn_1/dense_1_1/MatMul;tiny_mnist_cnn_1/dense_1_1/Relu;tiny_mnist_cnn_1/dense_1_1/BiasAdd",
+      "shape": [
+        1,
+        16
+      ],
+      "dtype": "int8",
+      "size_bytes": 16,
+      "quantized": true,
+      "scale": 0.0981118381023407,
+      "zero_point": -128
+    },
+    {
+      "index": 21,
+      "name": "tiny_mnist_cnn_1/output_probabilities_1/MatMul;tiny_mnist_cnn_1/output_probabilities_1/BiasAdd",
+      "shape": [
+        1,
+        10
+      ],
+      "dtype": "int8",
+      "size_bytes": 10,
+      "quantized": true,
+      "scale": 0.18816432356834412,
+      "zero_point": -17
+    },
+    {
+      "index": 22,
+      "name": "StatefulPartitionedCall_1:0",
+      "shape": [
+        1,
+        10
+      ],
+      "dtype": "int8",
+      "size_bytes": 10,
+      "quantized": true,
+      "scale": 0.00390625,
+      "zero_point": -128
+    }
+  ]
+}
