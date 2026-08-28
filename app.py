@@ -19,6 +19,7 @@ from src.inference import (
     quantize_input_image,
     run_inference,
 )
+from src.metrics import evaluate_memory_budget
 
 # Base project paths (relative)
 ROOT_DIR = Path(__file__).resolve().parent
@@ -475,6 +476,133 @@ with tab_tinyml:
             st.markdown(f"- **Hardware Clock Cycles**: `Not Measured`")
             st.markdown(f"- **Hardware Power/Current Draw**: `Not Measured`")
             st.caption("_Hardware execution was evaluated on host simulation/TFLite runtime; physical microcontroller targets (e.g. STM32, ESP32) were not flashed in this software environment._")
+
+        st.markdown("---")
+        st.markdown("##### 🧮 Static TinyML Resource Budget Checker")
+        st.caption(
+            "Interactively evaluate whether the verified INT8 model fits within your target microcontroller's Flash and SRAM budgets. "
+            "Model Flash is verified from binary; Tensor Arena RAM is an analytical projection."
+        )
+
+        mcu_presets = {
+            "Standard TinyML (32 KB Flash / 32 KB RAM)": (32.0, 32.0),
+            "Generic Tiny (16 KB Flash / 16 KB RAM)": (16.0, 16.0),
+            "Mid-Range MCU (64 KB Flash / 64 KB RAM)": (64.0, 64.0),
+            "High-End TinyML (128 KB Flash / 128 KB RAM)": (128.0, 128.0),
+            "Arduino Nano 33 BLE (1024 KB Flash / 256 KB RAM)": (1024.0, 256.0),
+            "Raspberry Pi RP2040 (2048 KB Flash / 264 KB RAM)": (2048.0, 264.0),
+            "ESP32-S3 (4096 KB Flash / 512 KB RAM)": (4096.0, 512.0),
+            "Custom / Manual Input": (32.0, 32.0),
+        }
+
+        col_preset, col_flash_in, col_ram_in = st.columns([2, 1, 1])
+        with col_preset:
+            selected_preset = st.selectbox(
+                "Target MCU Preset:",
+                list(mcu_presets.keys()),
+                index=0,
+                key="mcu_preset_select",
+            )
+            def_flash, def_ram = mcu_presets[selected_preset]
+
+        with col_flash_in:
+            avail_flash_kb = st.number_input(
+                "Available Flash (KB):",
+                min_value=1.0,
+                max_value=16384.0,
+                value=float(def_flash),
+                step=8.0,
+                key=f"flash_input_{selected_preset}",
+            )
+
+        with col_ram_in:
+            avail_ram_kb = st.number_input(
+                "Available RAM (KB):",
+                min_value=1.0,
+                max_value=4096.0,
+                value=float(def_ram),
+                step=4.0,
+                key=f"ram_input_{selected_preset}",
+            )
+
+        budget_res = evaluate_memory_budget(
+            avail_flash_kb,
+            avail_ram_kb,
+            model_flash_bytes=ver["flash_storage_bytes"],
+            estimated_arena_bytes=est["estimated_tensor_arena_bytes"],
+        )
+
+        col_b_flash, col_b_ram = st.columns(2)
+
+        with col_b_flash:
+            flash_border = "#10B981" if budget_res["flash_fits"] else "#EF4444"
+            flash_badge = "✅ FITS" if budget_res["flash_fits"] else "❌ DOES NOT FIT"
+            flash_text_color = "#10B981" if budget_res["flash_fits"] else "#EF4444"
+            flash_headroom_str = (
+                f"Headroom: {budget_res['flash_headroom_kb']:.1f} KB remaining"
+                if budget_res["flash_fits"]
+                else f"Shortfall: {budget_res['flash_shortfall_kb']:.1f} KB needed"
+            )
+            st.markdown(
+                f"""
+                <div style="background: #1E293B; border: 1px solid {flash_border}; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 700; font-size: 1.1rem; color: #F8FAFC;">📦 Flash / ROM Budget</span>
+                        <span style="font-weight: 700; font-size: 0.95rem; color: {flash_text_color};">{flash_badge}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">Available Flash: <b style="color: #F8FAFC;">{budget_res['available_flash_kb']:.1f} KB</b></div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">INT8 Model Footprint: <b style="color: #38BDF8;">{budget_res['model_flash_kb']:.2f} KB</b> ({budget_res['model_flash_bytes']:,} B)</div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">Flash Utilization: <b style="color: {flash_text_color};">{budget_res['flash_usage_pct']:.1f}%</b></div>
+                    <div style="font-size: 0.85rem; color: #64748B; margin-top: 6px;">{flash_headroom_str}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            flash_bar_pct = min(1.0, budget_res["flash_usage_pct"] / 100.0) if budget_res["available_flash_kb"] > 0 else 1.0
+            st.progress(flash_bar_pct, text=f"Flash Allocation: {budget_res['flash_usage_pct']:.1f}%")
+
+        with col_b_ram:
+            ram_border = "#10B981" if budget_res["ram_fits"] else "#EF4444"
+            ram_badge = "✅ FITS" if budget_res["ram_fits"] else "❌ DOES NOT FIT"
+            ram_text_color = "#10B981" if budget_res["ram_fits"] else "#EF4444"
+            ram_headroom_str = (
+                f"Headroom: ~{budget_res['ram_headroom_kb']:.1f} KB remaining"
+                if budget_res["ram_fits"]
+                else f"Shortfall: ~{budget_res['ram_shortfall_kb']:.1f} KB needed"
+            )
+            st.markdown(
+                f"""
+                <div style="background: #1E293B; border: 1px solid {ram_border}; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 700; font-size: 1.1rem; color: #F8FAFC;">⚡ RAM / SRAM Budget</span>
+                        <span style="font-weight: 700; font-size: 0.95rem; color: {ram_text_color};">{ram_badge}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">Available RAM: <b style="color: #F8FAFC;">{budget_res['available_ram_kb']:.1f} KB</b></div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">Estimated Tensor Arena: <b style="color: #F59E0B;">~{budget_res['estimated_arena_kb']:.1f} KB</b> ({budget_res['estimated_arena_bytes']:,} B)</div>
+                    <div style="font-size: 0.9rem; color: #94A3B8;">RAM Utilization: <b style="color: {ram_text_color};">~{budget_res['ram_usage_pct']:.1f}%</b></div>
+                    <div style="font-size: 0.85rem; color: #64748B; margin-top: 6px;">{ram_headroom_str}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            ram_bar_pct = min(1.0, budget_res["ram_usage_pct"] / 100.0) if budget_res["available_ram_kb"] > 0 else 1.0
+            st.progress(ram_bar_pct, text=f"RAM Allocation: ~{budget_res['ram_usage_pct']:.1f}%")
+
+        if budget_res["fits_overall"]:
+            st.success(f"🎯 **Target Compatible**: {budget_res['explanation']}")
+        else:
+            st.error(f"⚠️ **Target Incompatible**: {budget_res['explanation']}")
+
+        st.markdown(
+            """
+            <div style="background: #0F172A; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-size: 0.82rem; color: #94A3B8; margin-top: 8px; margin-bottom: 16px;">
+                <b>Detailed Memory Breakdown & Boundary Notes:</b><br>
+                • <b>Flash (Verified)</b>: INT8 FlatBuffer model is exactly <b>13,824 bytes (13.50 KB)</b>. <i>(Application firmware / MCU driver code overhead not included)</i><br>
+                • <b>RAM (Estimated)</b>: Input buffer = <b>784 B</b>, Largest single activation = <b>5,408 B</b>, TFLM Tensor Arena projection = <b>~14.0 KB</b>. <i>(Microcontroller stack / RTOS heap overhead not included)</i>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown("---")
         st.markdown("##### 🧱 TFLite Micro Supported Operators")
