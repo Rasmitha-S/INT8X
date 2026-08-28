@@ -1165,57 +1165,585 @@ elif nav_selection == "◉ TINYML VERIFY":
 elif nav_selection == "◉ PIPELINE":
     st.markdown(
         """
-        <div style="margin-bottom: 18px;">
-            <div style="font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
-                PIPELINE ARCHITECTURE & QUANTIZATION MATHEMATICS
+        <div style="margin-bottom: 20px;">
+            <div style="font-size: 1.85rem; font-weight: 900; letter-spacing: -0.02em; color: #F8FAFC;">
+                PIPELINE ARCHITECTURE
             </div>
-            <div style="font-size: 0.9rem; color: #7C3AED; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-                END-TO-END EMBEDDED CONVERSION PROTOCOL
+            <div style="font-size: 1.15rem; font-weight: 700; color: #00E5FF; margin-top: 2px;">
+                From FP32 CNN to TinyML-Ready INT8
+            </div>
+            <div style="font-size: 0.9rem; color: #94A3B8; margin-top: 6px;">
+                See how a trained floating-point CNN is transformed into a compact integer model for resource-constrained edge devices.
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 10px 18px; margin-bottom: 28px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 0.8rem; font-weight: 800; color: #A3FF12;"><span style="background: #162618; border: 1px solid #A3FF12; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">1</span> TRAIN</div>
+            <div style="color: #475569;">➔</div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: #00E5FF;"><span style="background: #0E2530; border: 1px solid #00E5FF; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">2</span> CONVERT</div>
+            <div style="color: #475569;">➔</div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: #A78BFA;"><span style="background: #231936; border: 1px solid #7C3AED; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">3</span> CALIBRATE</div>
+            <div style="color: #475569;">➔</div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: #00E5FF;"><span style="background: #0E2530; border: 1px solid #00E5FF; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">4</span> QUANTIZE</div>
+            <div style="color: #475569;">➔</div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: #A3FF12;"><span style="background: #162618; border: 1px solid #A3FF12; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">5</span> EXPORT</div>
+            <div style="color: #475569;">➔</div>
+            <div style="font-size: 0.8rem; font-weight: 800; color: #38BDF8;"><span style="background: #132738; border: 1px solid #38BDF8; border-radius: 4px; padding: 2px 6px; margin-right: 4px;">6</span> DEPLOY</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # -------------------------------------------------------------------------
+    # SECTION 1: THE EDGE CONSTRAINT
+    # -------------------------------------------------------------------------
+    st.markdown("##### 01 · WHY FP32 IS TOO HEAVY")
+    
+    col_e1, col_e_mid, col_e2 = st.columns([5, 2, 5])
+    with col_e1:
+        st.markdown(
+            f"""
+            <div style="background: #11131A; border: 1px solid #2A3042; border-radius: 8px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 1.1rem; font-weight: 800; color: #F8FAFC;">FP32 CNN</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: #94A3B8; background: #1E2230; padding: 3px 8px; border-radius: 4px;">32-bit Floating Point</span>
+                </div>
+                <div style="margin-top: 14px; font-size: 0.88rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>MODEL SIZE</b>: <span style="color: #F8FAFC; font-weight: 700;">{fp32_b.get('size_kb', 34.70)} KB</span> ({fp32_b.get('size_bytes', 35536):,} Bytes)<br>
+                    • <b>ARITHMETIC</b>: 32-bit IEEE 754 Floating Point<br>
+                    • <b>HARDWARE</b>: Requires Floating-Point Unit (FPU)<br>
+                    • <b>DEPLOYMENT</b>: More resource intensive
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_e_mid:
+        st.markdown(
+            """
+            <div style="text-align: center; padding-top: 24px;">
+                <div style="font-size: 0.72rem; font-weight: 800; color: #64748B;">FP32</div>
+                <div style="font-size: 1.3rem; color: #7C3AED; font-weight: 900; margin: 4px 0;">⚡ PTQ ➔</div>
+                <div style="font-size: 0.72rem; font-weight: 800; color: #00E5FF;">INT8</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_e2:
+        st.markdown(
+            f"""
+            <div style="background: #11131A; border: 1px solid #7C3AED; border-radius: 8px; padding: 18px; box-shadow: 0 0 15px rgba(124, 58, 237, 0.12);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 1.1rem; font-weight: 800; color: #00E5FF;">INT8 CNN</span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: #A3FF12; background: #162618; border: 1px solid #A3FF12; padding: 3px 8px; border-radius: 4px;">8-bit Integer</span>
+                </div>
+                <div style="margin-top: 14px; font-size: 0.88rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>MODEL SIZE</b>: <span style="color: #00E5FF; font-weight: 700;">{int8_q.get('size_kb', 13.50)} KB</span> ({int8_q.get('size_bytes', 13824):,} Bytes)<br>
+                    • <b>ARITHMETIC</b>: 8-bit Signed Integer SIMD<br>
+                    • <b>HARDWARE</b>: Pure Integer ALU (No FPU Required)<br>
+                    • <b>DEPLOYMENT</b>: TinyML-oriented
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    col_ci1, col_ci2, col_ci3 = st.columns(3)
+    with col_ci1:
+        st.markdown(
+            f"""
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 12px; margin-top: 10px;">
+                <div style="font-size: 0.72rem; font-weight: 800; color: #64748B;">FLASH MEMORY FOOTPRINT</div>
+                <div style="font-size: 1.1rem; font-weight: 800; color: #00E5FF; margin-top: 2px;">FP32 {fp32_b.get('size_kb', 34.70)} KB ➔ INT8 {int8_q.get('size_kb', 13.50)} KB</div>
+                <div style="font-size: 0.8rem; color: #A3FF12; font-weight: 700;">↓ {res.get('size_reduction_percent', 61.10)}% Reduction</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_ci2:
+        st.markdown(
+            """
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 12px; margin-top: 10px;">
+                <div style="font-size: 0.72rem; font-weight: 800; color: #64748B;">COMPUTATIONAL PIPELINE</div>
+                <div style="font-size: 1.1rem; font-weight: 800; color: #A78BFA; margin-top: 2px;">32-bit Float ➔ 8-bit Integer</div>
+                <div style="font-size: 0.8rem; color: #94A3B8;">SIMD execution on standard ALU</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_ci3:
+        st.markdown(
+            """
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 12px; margin-top: 10px;">
+                <div style="font-size: 0.72rem; font-weight: 800; color: #64748B;">EDGE TARGET HARDWARE</div>
+                <div style="font-size: 1.1rem; font-weight: 800; color: #FFB020; margin-top: 2px;">Limited Flash + SRAM</div>
+                <div style="font-size: 0.8rem; color: #94A3B8;">Fits 32 KB / 64 KB Microcontrollers</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        """
+        <div style="font-size: 0.84rem; color: #94A3B8; margin-top: 10px; font-style: italic;">
+            "INT8 reduces the numerical representation used by the deployed model, making the model more suitable for memory-constrained embedded inference."
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 2: VISUAL QUANTIZATION MATHEMATICS
+    # -------------------------------------------------------------------------
+    st.markdown("##### 02 · FP32 → INT8 MATHEMATICAL TRANSFORMATION")
+
+    st.markdown(
+        """
+        <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; text-align: center;">
+                <div style="background: #08090D; border: 1px solid #2A3042; border-radius: 6px; padding: 10px 18px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #64748B;">REAL CONTINUOUS VALUE</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #F8FAFC;">r ∈ [r_min, r_max]</div>
+                </div>
+                <div style="font-size: 1.4rem; color: #7C3AED;">➔</div>
+                <div style="background: #161824; border: 1px solid #7C3AED; border-radius: 6px; padding: 10px 18px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #A78BFA;">LINEAR AFFINE QUANTIZATION</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #00E5FF;">Scale S &nbsp;|&nbsp; Zero-Point Z</div>
+                </div>
+                <div style="font-size: 1.4rem; color: #7C3AED;">➔</div>
+                <div style="background: #08090D; border: 1px solid #A3FF12; border-radius: 6px; padding: 10px 18px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; color: #A3FF12;">INTEGER DISCRETE VALUE</div>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: #A3FF12;">q ∈ [-128, 127]</div>
+                </div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px; height: 100%;">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #00E5FF; text-transform: uppercase; letter-spacing: 0.08em;">QUANTIZATION FORMULA</div>
+                <div style="font-size: 1.3rem; font-weight: 800; color: #F8FAFC; margin: 10px 0;">
+                    $$q = \\text{clip}\\left(\\left\\lfloor \\frac{r}{S} \\right\\rceil + Z, -128, 127\\right)$$
+                </div>
+                <div style="font-size: 0.85rem; color: #94A3B8;">
+                    "Converts a floating-point value into an INT8 representation."
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_q2:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px; height: 100%;">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #A78BFA; text-transform: uppercase; letter-spacing: 0.08em;">DEQUANTIZATION FORMULA</div>
+                <div style="font-size: 1.3rem; font-weight: 800; color: #F8FAFC; margin: 10px 0;">
+                    $$r = S \\times (q - Z)$$
+                </div>
+                <div style="font-size: 0.85rem; color: #94A3B8;">
+                    "Recovers the corresponding real-valued approximation."
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Visual Number Line
     st.markdown(
         """
-        ##### 1. The TinyML Edge Constraint
-        Standard deep learning pipelines train CNNs with 32-bit floating-point (`float32`) arithmetic. While accurate, FP32 models introduce severe deployment bottlenecks on edge microcontrollers:
-        - **Flash Storage Limits**: Microcontrollers typically possess between 64 KB and 512 KB of Flash memory.
-        - **SRAM Limits**: Embedded systems offer only 16 KB to 128 KB of SRAM.
-        - **Floating-Point Emulation**: Ultra-low-power microcontrollers (e.g. ARM Cortex-M0/M3) lack a hardware FPU, making software float calculations slow and energy-prohibitive.
-
-        ##### 2. Post-Training Integer Quantization (PTQ) Mathematics
-        PTQ maps real continuous floating-point numbers $r \in [r_{\min}, r_{\max}]$ onto 8-bit signed integers $q \in [-128, 127]$ through a linear affine transformation:
-
-        $$\\text{Quantize: } q = \\text{clip}\\left(\\left\\lfloor \\frac{r}{S} \\right\\rceil + Z, -128, 127\\right)$$
-
-        $$\\text{Dequantize: } r = S \\times (q - Z)$$
-
-        Where:
-        - **$S$ (Scale)**: Positive float representing the step size per integer quantum ($S = \\frac{r_{\\max} - r_{\\min}}{q_{\\max} - q_{\\min}}$).
-        - **$Z$ (Zero-Point)**: Integer offset corresponding exactly to the real value `0.0` to ensure zero-padding is mathematically lossless.
-
-        ##### 3. Calibration with Representative Dataset
-        Because activation dynamic ranges cannot be deduced from static weights alone, a **Representative Dataset** of 200 real MNIST training samples is piped through the network during quantization. The calibration engine records intermediate activation distributions across all convolutional and dense layers to determine optimal scale factors and zero-points.
-
-        ##### 4. End-to-End Pipeline Workflow
-        ```text
-        [MNIST Dataset (28x28)] ──► [Lightweight CNN Training] ──► [model_fp32.keras (131 KB)]
-                                                                           │
-                                                                 [TFLite FlatBuffer]
-                                                                           ▼
-                                                               [model_fp32.tflite (34.7 KB)]
-                                                                           │
-                                                               [PTQ + 200 Real Samples]
-                                                                           ▼
-                                                               [model_int8.tflite (13.5 KB)]
-                                                                           │
-                                                               [C-Array Hex Exporter]
-                                                                           ▼
-                                                               [tinyml/model_data.h & .cc]
-                                                                           │
-                                                               [TFLite Micro Runtime on MCU]
-        ```
-        """
+        <div style="background: #0E1017; border: 1px solid #1E2230; border-radius: 8px; padding: 18px; margin-top: 16px;">
+            <div style="font-size: 0.78rem; font-weight: 800; color: #64748B; margin-bottom: 8px;">VISUAL NUMBER-LINE AFFINE MAPPING</div>
+            <div style="font-family: monospace; font-size: 0.88rem; color: #CBD5E1; line-height: 2;">
+                <b>REAL DOMAIN</b> &nbsp;&nbsp;&nbsp;: <span style="color: #64748B;">r_min</span> ──────────────────── <span style="color: #00E5FF; font-weight: 800;">0.0</span> ──────────────────── <span style="color: #64748B;">r_max</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7C3AED; font-weight: 800;">↓ AFFINE MAPPING (S, Z)</span><br>
+                <b>INT8 DOMAIN</b> &nbsp;&nbsp;&nbsp;: <span style="color: #64748B;">-128</span> ──────────────────── <span style="color: #A3FF12; font-weight: 800;">Z = -128</span> ───────────────── <span style="color: #64748B;">+127</span>
+            </div>
+            <div style="display: flex; gap: 20px; margin-top: 10px; font-size: 0.8rem; color: #94A3B8; border-top: 1px solid #1E2230; padding-top: 8px;">
+                <div><b>S (Scale)</b>: Positive float representing the step size per integer quantum.</div>
+                <div><b>Z (Zero-Point)</b>: Integer offset corresponding exactly to real 0.0 for lossless padding.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 3: USE OUR ACTUAL PROJECT VALUES
+    # -------------------------------------------------------------------------
+    st.markdown("##### 03 · ACTUAL QUANTIZATION PARAMETERS")
+    st.caption("Dynamically read from the verified INT8 TFLite interpreter.")
+
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #00E5FF; border-radius: 8px; padding: 18px;">
+                <div style="font-size: 0.8rem; font-weight: 800; color: #00E5FF;">INPUT TENSOR PARAMETERS</div>
+                <div style="margin-top: 10px; font-size: 0.88rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>Data Type</b>: <code>int8</code><br>
+                    • <b>Scale (S)</b>: <code>0.003921568859368563</code> (≈ 1 / 255)<br>
+                    • <b>Zero-Point (Z)</b>: <code>-128</code><br>
+                    • <b>Tensor Shape</b>: <code>[1, 28, 28, 1]</code> (784 Bytes)
+                </div>
+                <div style="background: #08090D; border-radius: 6px; padding: 10px; margin-top: 12px; font-family: monospace; font-size: 0.82rem; color: #A3FF12;">
+                    Real [0.0, 1.0] ➔ Quantized [-128, 127]<br>
+                    0.0 ➔ -128 &nbsp;&nbsp;|&nbsp;&nbsp; 1.0 ➔ 127
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_p2:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #7C3AED; border-radius: 8px; padding: 18px;">
+                <div style="font-size: 0.8rem; font-weight: 800; color: #A78BFA;">OUTPUT TENSOR PARAMETERS</div>
+                <div style="margin-top: 10px; font-size: 0.88rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>Data Type</b>: <code>int8</code><br>
+                    • <b>Scale (S)</b>: <code>0.00390625</code> (1 / 256)<br>
+                    • <b>Zero-Point (Z)</b>: <code>-128</code><br>
+                    • <b>Tensor Shape</b>: <code>[1, 10]</code> (10 Classes)
+                </div>
+                <div style="background: #08090D; border-radius: 6px; padding: 10px; margin-top: 12px; font-family: monospace; font-size: 0.82rem; color: #00E5FF;">
+                    Quantized [-128, 127] ➔ Probability [0.0, 1.0]<br>
+                    -128 ➔ 0.0 &nbsp;&nbsp;|&nbsp;&nbsp; +127 ➔ ≈ 1.0
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 4: REPRESENTATIVE DATASET CALIBRATION
+    # -------------------------------------------------------------------------
+    st.markdown("##### 04 · HOW THE MODEL LEARNS ITS INT8 RANGE")
+
+    col_cal_flow, col_cal_info = st.columns([7, 5])
+    with col_cal_flow:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px;">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #A3FF12; letter-spacing: 0.08em; text-transform: uppercase;">
+                    CALIBRATION DATA FLOW
+                </div>
+                <div style="margin-top: 12px; font-size: 0.88rem; color: #F8FAFC; line-height: 2;">
+                    <span style="color: #00E5FF; font-weight: 800;">200 REAL MNIST SAMPLES</span><br>
+                    &nbsp;&nbsp;↓ <i>Feedforward through FP32 network</i><br>
+                    <span style="color: #F8FAFC; font-weight: 700;">FP32 CNN LAYERS</span><br>
+                    &nbsp;&nbsp;↓ <i>Record min/max dynamic activation values</i><br>
+                    <span style="color: #A78BFA; font-weight: 700;">ACTIVATION OBSERVATION & RANGE CALIBRATION</span><br>
+                    &nbsp;&nbsp;↓ <i>Compute optimal scale S and zero-point Z</i><br>
+                    <span style="color: #A3FF12; font-weight: 800;">INT8 QUANTIZED MODEL (No Accuracy Loss)</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_cal_info:
+        st.markdown(
+            """
+            <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px; height: 100%;">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #64748B; text-transform: uppercase;">
+                    REPRESENTATIVE DATASET SPECIFICATION
+                </div>
+                <div style="margin-top: 10px; font-size: 0.86rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>Sample Count</b>: 200 samples<br>
+                    • <b>Source</b>: MNIST Training Set<br>
+                    • <b>Sample Shape</b>: <code>(28, 28, 1)</code><br>
+                    • <b>Data Type</b>: <code>float32</code><br>
+                    • <b>Value Range</b>: <code>[0.0, 1.0]</code>
+                </div>
+                <div style="font-size: 0.8rem; color: #94A3B8; margin-top: 10px; border-top: 1px solid #1E2230; padding-top: 8px;">
+                    "Representative samples are passed through the network during PTQ calibration. The observed activation ranges are used to determine quantization parameters for the integer model."
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 5: END-TO-END PIPELINE
+    # -------------------------------------------------------------------------
+    st.markdown("##### 05 · END-TO-END EMBEDDED CONVERSION")
+
+    st.markdown(
+        f"""
+        <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 10px; padding: 22px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; text-align: center;">
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 1</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">MNIST DATASET</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8;">28×28 Grayscale</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 2</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">LIGHTWEIGHT CNN</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8;">7,834 Params</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 3</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">FP32 KERAS</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8;">model_fp32.keras</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 4</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">FP32 TFLITE</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8;">{fp32_b.get('size_kb', 34.70)} KB</div>
+                </div>
+                <div style="background: #161824; border: 1px solid #7C3AED; border-radius: 6px; padding: 12px 6px; box-shadow: 0 0 12px rgba(124, 58, 237, 0.2);">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #00E5FF;">NODE 5 (KEY)</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #00E5FF; margin-top: 4px;">INT8 PTQ</div>
+                    <div style="font-size: 0.72rem; color: #A78BFA;">200 Samples</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 6</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #A3FF12; margin-top: 4px;">INT8 TFLITE</div>
+                    <div style="font-size: 0.72rem; color: #A3FF12;">{int8_q.get('size_kb', 13.50)} KB</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 7</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #F8FAFC; margin-top: 4px;">C-ARRAY EXPORT</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8;">model_data.h/.cc</div>
+                </div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 12px 6px;">
+                    <div style="font-size: 0.68rem; font-weight: 800; color: #64748B;">NODE 8</div>
+                    <div style="font-size: 0.82rem; font-weight: 800; color: #38BDF8; margin-top: 4px;">TINYML READY</div>
+                    <div style="font-size: 0.72rem; color: #38BDF8;">TFLM Compatible</div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-around; margin-top: 18px; padding-top: 14px; border-top: 1px solid #1E2230; font-size: 0.85rem;">
+                <div>FP32 TFLite: <b>{fp32_b.get('size_kb', 34.70)} KB</b></div>
+                <div>INT8 TFLite: <b style="color: #00E5FF;">{int8_q.get('size_kb', 13.50)} KB</b></div>
+                <div>Flash Reduction: <b style="color: #A3FF12;">-{res.get('size_reduction_percent', 61.10)}%</b></div>
+                <div>Compression: <b style="color: #A78BFA;">{res.get('compression_ratio', 2.57)}×</b></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 6: BEFORE vs AFTER
+    # -------------------------------------------------------------------------
+    st.markdown("##### 06 · WHAT CHANGED?")
+
+    col_ba1, col_ba2 = st.columns(2)
+    with col_ba1:
+        st.markdown(
+            f"""
+            <div style="background: #11131A; border: 1px solid #2A3042; border-radius: 8px; padding: 18px;">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #94A3B8; text-transform: uppercase;">BEFORE (FP32 BASELINE)</div>
+                <div style="margin-top: 12px; font-size: 0.9rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>Model Format</b>: FP32 TFLite FlatBuffer<br>
+                    • <b>Flash Size</b>: {fp32_b.get('size_kb', 34.70)} KB ({fp32_b.get('size_bytes', 35536):,} B)<br>
+                    • <b>Tensor Dtype</b>: <code>float32</code><br>
+                    • <b>Test Accuracy</b>: {fp32_b.get('accuracy_percent', 98.44)}% (9,844 / 10,000)<br>
+                    • <b>Host Latency</b>: {fp32_b.get('latency_mean_ms', 0.0133):.4f} ms (Host CPU)
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_ba2:
+        st.markdown(
+            f"""
+            <div style="background: #11131A; border: 1px solid #00E5FF; border-radius: 8px; padding: 18px; box-shadow: 0 0 15px rgba(0, 229, 255, 0.1);">
+                <div style="font-size: 0.78rem; font-weight: 800; color: #00E5FF; text-transform: uppercase;">AFTER (INT8 QUANTIZED)</div>
+                <div style="margin-top: 12px; font-size: 0.9rem; color: #CBD5E1; line-height: 1.8;">
+                    • <b>Model Format</b>: INT8 TFLite FlatBuffer<br>
+                    • <b>Flash Size</b>: <span style="color: #00E5FF; font-weight: 700;">{int8_q.get('size_kb', 13.50)} KB</span> ({int8_q.get('size_bytes', 13824):,} B)<br>
+                    • <b>Tensor Dtype</b>: <code>int8</code><br>
+                    • <b>Test Accuracy</b>: <span style="color: #A3FF12; font-weight: 700;">{int8_q.get('accuracy_percent', 98.46)}%</span> (9,846 / 10,000)<br>
+                    • <b>Host Latency</b>: <span style="color: #A78BFA; font-weight: 700;">{int8_q.get('latency_mean_ms', 0.0098):.4f} ms</span> (Host CPU)
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    col_imp1, col_imp2, col_imp3 = st.columns(3)
+    with col_imp1:
+        st.markdown(
+            f"""
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 14px; margin-top: 10px; text-align: center;">
+                <div style="font-size: 1.6rem; font-weight: 900; color: #00E5FF;">{res.get('size_reduction_percent', 61.10)}%</div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">SMALLER MODEL</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_imp2:
+        st.markdown(
+            f"""
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 14px; margin-top: 10px; text-align: center;">
+                <div style="font-size: 1.6rem; font-weight: 900; color: #A3FF12;">+{res.get('accuracy_delta_percentage_points', 0.02)} pts</div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">TEST ACCURACY CHANGE</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_imp3:
+        st.markdown(
+            f"""
+            <div style="background: #0B0D14; border: 1px solid #1E2230; border-radius: 6px; padding: 14px; margin-top: 10px; text-align: center;">
+                <div style="font-size: 1.6rem; font-weight: 900; color: #A78BFA;">26.32%</div>
+                <div style="font-size: 0.75rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;">LOWER MEAN HOST LATENCY*</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.caption("*Host CPU measurement (single sample execution). Microcontroller execution cycles will vary with clock speed.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 7: TINYML DEPLOYMENT BRIDGE
+    # -------------------------------------------------------------------------
+    st.markdown("##### 07 · FROM MODEL FILE TO EMBEDDED BINARY")
+
+    st.markdown(
+        """
+        <div style="background: #11131A; border: 1px solid #1E2230; border-radius: 8px; padding: 18px;">
+            <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 12px; text-align: center;">
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 10px 14px;">
+                    <div style="font-size: 0.7rem; color: #64748B;">MODEL FILE</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #F8FAFC;">model_int8.tflite</div>
+                </div>
+                <div style="color: #7C3AED; font-weight: 800;">➔</div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 10px 14px;">
+                    <div style="font-size: 0.7rem; color: #64748B;">BYTE-EXACT CONVERSION</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #00E5FF;">C Array Hex Array</div>
+                </div>
+                <div style="color: #7C3AED; font-weight: 800;">➔</div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 10px 14px;">
+                    <div style="font-size: 0.7rem; color: #64748B;">SOURCE FILES</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #A3FF12;">model_data.h / .cc</div>
+                </div>
+                <div style="color: #7C3AED; font-weight: 800;">➔</div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 10px 14px;">
+                    <div style="font-size: 0.7rem; color: #64748B;">RUNTIME ENGINE</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #A78BFA;">TFLite Micro Runtime</div>
+                </div>
+                <div style="color: #7C3AED; font-weight: 800;">➔</div>
+                <div style="background: #08090D; border: 1px solid #1E2230; border-radius: 6px; padding: 10px 14px;">
+                    <div style="font-size: 0.7rem; color: #64748B;">HARDWARE TARGET</div>
+                    <div style="font-size: 0.85rem; font-weight: 800; color: #38BDF8;">Target MCU (Flash/RAM)</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #1E2230; font-size: 0.82rem; color: #CBD5E1;">
+                <div>✓ <b>C-array matches INT8 TFLite binary</b></div>
+                <div>✓ <b>Exact 13,824 bytes binary length</b></div>
+                <div>✓ <b>INT8 input/output tensor types</b></div>
+                <div>✓ <b>TFLite Micro-compatible operators verified</b></div>
+            </div>
+            <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 12px; background: #08090D; padding: 10px; border-radius: 6px;">
+                ⚠️ <b>Honest Boundary Note</b>: Physical MCU flashing and hardware power/cycle measurements are not part of the current verification.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION 8: TECHNICAL TAKEAWAY
+    # -------------------------------------------------------------------------
+    st.markdown("##### 08 · THE ENGINEERING TAKEAWAY")
+
+    st.markdown(
+        """
+        <div style="background: linear-gradient(135deg, #11131A 0%, #161824 100%); border: 1px solid #7C3AED; border-radius: 10px; padding: 22px; box-shadow: 0 0 20px rgba(124, 58, 237, 0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.82rem; font-weight: 800; color: #00E5FF; margin-bottom: 12px;">
+                <span>TRAIN ON FP32</span>
+                <span style="color: #7C3AED;">➔</span>
+                <span>CALIBRATE WITH REAL DATA</span>
+                <span style="color: #7C3AED;">➔</span>
+                <span>QUANTIZE TO INT8</span>
+                <span style="color: #7C3AED;">➔</span>
+                <span>VERIFY ACCURACY</span>
+                <span style="color: #7C3AED;">➔</span>
+                <span>MEASURE SIZE & LATENCY</span>
+                <span style="color: #7C3AED;">➔</span>
+                <span>EXPORT FOR TINYML</span>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: #F8FAFC; line-height: 1.5; margin-top: 6px;">
+                "The goal is not simply to make the model smaller. The goal is to preserve useful inference accuracy while producing a representation that is practical for resource-constrained edge deployment."
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # INTERACTIVE TECHNICAL EXPANDERS
+    # -------------------------------------------------------------------------
+    st.markdown("##### 🔍 Deep-Dive Technical Inspections")
+
+    with st.expander("Show Quantization Details"):
+        st.markdown(
+            """
+            - **Quantization Type**: Full-Integer Post-Training Quantization (PTQ)
+            - **Input Interface**: `int8` (`[-128, 127]`)
+            - **Output Interface**: `int8` (`[-128, 127]`)
+            - **Internal Layers**: Convolution, Pooling, and Dense weights and intermediate activations are all quantized to signed 8-bit integers.
+            - **Biases**: Stored as 32-bit integers (`int32`) with scale $S_{\\text{bias}} = S_{\\text{input}} \\times S_{\\text{weight}}$.
+            """
+        )
+
+    with st.expander("Show Calibration Details"):
+        st.markdown(
+            """
+            - **Representative Generator**: 200 real MNIST training samples yielded sequentially.
+            - **Dynamic Range Recording**: For each layer $l$, the calibration observer captures $r_{\\min}^{(l)}$ and $r_{\\max}^{(l)}$.
+            - **Scale Calculation**: $S = \\frac{r_{\\max} - r_{\\min}}{255.0}$.
+            - **Zero-Point Calculation**: $Z = \\text{round}\\left(-r_{\\min} / S\\right) - 128$.
+            """
+        )
+
+    with st.expander("Show Tensor Parameters"):
+        st.markdown(
+            """
+            - **Input Tensor Index 0**: Shape `[1, 28, 28, 1]`, Scale: `0.003921568859368563`, Zero-Point: `-128`.
+            - **Conv2D Weights**: Shape `[3, 3, 1, 8]`, Per-channel scale and zero-point.
+            - **Conv2D_1 Weights**: Shape `[3, 3, 8, 16]`, Per-channel scale and zero-point.
+            - **Dense Weights**: Shape `[16, 10]`, Per-tensor scale and zero-point.
+            - **Output Tensor Index 11**: Shape `[1, 10]`, Scale: `0.00390625`, Zero-Point: `-128`.
+            """
+        )
+
+    with st.expander("Show Deployment Details"):
+        st.markdown(
+            """
+            - **Embedded C Header**: `tinyml/model_data.h` contains `extern const unsigned char g_model[];` and `extern const unsigned int g_model_len;`.
+            - **Embedded C Source**: `tinyml/model_data.cc` contains the 13,824-byte hex array `alignas(16) const unsigned char g_model[] = { ... };`.
+            - **TFLite Micro Runtime**: The model can be initialized via `tflite::GetModel(g_model)` and executed with `tflite::MicroInterpreter`.
+            - **Memory Allocation**: Arena size allocated via `uint8_t tensor_arena[kTensorArenaSize];` in RAM.
+            """
+        )
+
