@@ -12,6 +12,7 @@ from PIL import Image
 import plotly.graph_objects as go
 import streamlit as st
 
+from src.data import preprocess_canvas_drawing
 from src.inference import (
     dequantize_output_tensor,
     get_quantization_details,
@@ -20,6 +21,7 @@ from src.inference import (
     run_inference,
 )
 from src.metrics import evaluate_memory_budget
+from streamlit_drawable_canvas import st_canvas
 
 # Base project paths (relative)
 ROOT_DIR = Path(__file__).resolve().parent
@@ -292,7 +294,7 @@ with tab_infer:
     col_input, col_result = st.columns([1, 1])
 
     with col_input:
-        input_mode = st.radio("Choose Input Source:", ["Sample MNIST Digits", "Upload Image"], horizontal=True)
+        input_mode = st.radio("Choose Input Source:", ["Sample MNIST Digits", "Upload Image", "Draw Digit (Canvas)"], horizontal=True)
 
         norm_image: Optional[np.ndarray] = None
         preview_img: Optional[Image.Image] = None
@@ -307,7 +309,8 @@ with tab_infer:
                     norm_image, preview_img = preprocess_uploaded_image(f)
             else:
                 st.warning("No sample digits found in assets/sample_digits/")
-        else:
+
+        elif input_mode == "Upload Image":
             uploaded_file = st.file_uploader("Upload handwritten digit (PNG, JPG)", type=["png", "jpg", "jpeg"])
             if uploaded_file is not None:
                 try:
@@ -315,8 +318,50 @@ with tab_infer:
                 except Exception as e:
                     st.error(f"Error processing uploaded image: {e}")
 
+        elif input_mode == "Draw Digit (Canvas)":
+            st.markdown("Draw a digit (0–9) below with your mouse or touchscreen:")
+
+            col_c1, col_c2 = st.columns([3, 1])
+            with col_c2:
+                stroke_width = st.slider("Stroke Width:", min_value=12, max_value=32, value=20, step=2)
+                st.caption("Tip: Use bold strokes for clean MNIST preprocessing.")
+
+            with col_c1:
+                canvas_result = st_canvas(
+                    fill_color="rgba(255, 255, 255, 0.0)",
+                    stroke_width=stroke_width,
+                    stroke_color="#000000",
+                    background_color="#FFFFFF",
+                    update_streamlit=True,
+                    height=200,
+                    width=200,
+                    drawing_mode="freedraw",
+                    key="mnist_digit_canvas",
+                )
+
+            predict_btn = st.button("🔮 Predict Drawn Digit", type="primary", use_container_width=True)
+
+            if predict_btn or "drawn_norm_image" in st.session_state:
+                if predict_btn:
+                    if canvas_result is not None and canvas_result.image_data is not None:
+                        try:
+                            norm_image, preview_img = preprocess_canvas_drawing(canvas_result.image_data)
+                            st.session_state["drawn_norm_image"] = norm_image
+                            st.session_state["drawn_preview_img"] = preview_img
+                        except ValueError as ve:
+                            st.warning(str(ve))
+                            st.session_state.pop("drawn_norm_image", None)
+                            st.session_state.pop("drawn_preview_img", None)
+                        except Exception as e:
+                            st.error(f"Canvas processing error: {e}")
+                    else:
+                        st.warning("Please draw a digit before prediction.")
+                elif "drawn_norm_image" in st.session_state and input_mode == "Draw Digit (Canvas)":
+                    norm_image = st.session_state.get("drawn_norm_image")
+                    preview_img = st.session_state.get("drawn_preview_img")
+
         if preview_img is not None:
-            st.image(preview_img, caption="Preprocessed 28×28 Grayscale Input", width=160)
+            st.image(preview_img, caption="Preprocessed 28×28 Grayscale Input", width=140)
 
     with col_result:
         st.markdown("##### 🎯 INT8 Inference Output")
