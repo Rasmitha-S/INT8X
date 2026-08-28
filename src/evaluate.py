@@ -289,5 +289,127 @@ def run_full_benchmark(
     return comparison_data
 
 
+def compute_confusion_matrix(
+    tflite_model_path: str,
+    x_test: np.ndarray,
+    y_test: np.ndarray,
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Computes a 10x10 confusion matrix for a given TFLite model on the test dataset.
+
+    Args:
+        tflite_model_path: Path to the .tflite model file.
+        x_test: Test images of shape (N, 28, 28, 1), float32 in [0.0, 1.0].
+        y_test: Test labels of shape (N,).
+
+    Returns:
+        Tuple of (10x10 confusion matrix as numpy array, metrics summary dictionary).
+    """
+    interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
+    interpreter.allocate_tensors()
+
+    input_details = interpreter.get_input_details()[0]
+    output_details = interpreter.get_output_details()[0]
+
+    input_index = input_details["index"]
+    output_index = output_details["index"]
+    input_dtype = input_details["dtype"]
+    output_dtype = output_details["dtype"]
+
+    input_scale, input_zero_point = input_details.get("quantization", (0.0, 0))
+    output_scale, output_zero_point = output_details.get("quantization", (0.0, 0))
+
+    def prepare_input(img_float32: np.ndarray) -> np.ndarray:
+        sample = np.expand_dims(img_float32, axis=0) if img_float32.ndim == 3 else img_float32
+        if input_dtype in (np.int8, np.uint8):
+            quantized = np.round(sample / input_scale + input_zero_point)
+            if input_dtype == np.int8:
+                return np.clip(quantized, -128, 127).astype(np.int8)
+            else:
+                return np.clip(quantized, 0, 255).astype(np.uint8)
+        else:
+            return sample.astype(np.float32)
+
+    num_samples = len(x_test)
+    num_classes = 10
+    cm = np.zeros((num_classes, num_classes), dtype=np.int32)
+
+    for i in range(num_samples):
+        inp = prepare_input(x_test[i])
+        interpreter.set_tensor(input_index, inp)
+        interpreter.invoke()
+        output_data = interpreter.get_tensor(output_index)
+
+        if output_dtype in (np.int8, np.uint8) and output_scale > 0:
+            probs = (output_data.astype(np.float32) - output_zero_point) * output_scale
+        else:
+            probs = output_data
+
+        pred = int(np.argmax(probs))
+        actual = int(y_test[i])
+        cm[actual, pred] += 1
+
+    correct = int(np.trace(cm))
+    incorrect = int(num_samples - correct)
+    accuracy = float(correct / num_samples)
+
+    row_sums = cm.sum(axis=1)
+    per_class_recall = [
+        round(float(cm[c, c] / row_sums[c]) * 100.0, 2) if row_sums[c] > 0 else 0.0
+        for c in range(num_classes)
+    ]
+
+    summary = {
+        "model_path": tflite_model_path,
+        "total_samples": num_samples,
+        "correct_predictions": correct,
+        "incorrect_predictions": incorrect,
+        "accuracy": round(accuracy, 4),
+        "accuracy_percent": round(accuracy * 100.0, 2),
+        "matrix": cm.tolist(),
+        "per_class_recall_percent": per_class_recall,
+    }
+
+    return cm, summary
+
+
+def generate_confusion_matrices_json(
+    fp32_model_path: str = "models/model_fp32.tflite",
+    int8_model_path: str = "models/model_int8.tflite",
+    output_path: str = "results/confusion_matrices.json",
+) -> Dict[str, Any]:
+    """
+    Evaluates both FP32 and INT8 models on all 10,000 MNIST test samples and saves
+    the complete confusion matrix data for instant caching in the dashboard.
+    """
+    print("Loading 10,000 MNIST test samples for confusion matrix computation...")
+    _, (x_test, y_test) = load_mnist()
+
+    print("Computing FP32 confusion matrix...")
+    cm_fp32, fp32_summary = compute_confusion_matrix(fp32_model_path, x_test, y_test)
+
+    print("Computing INT8 confusion matrix...")
+    cm_int8, int8_summary = compute_confusion_matrix(int8_model_path, x_test, y_test)
+
+    class_counts = np.bincount(y_test, minlength=10).tolist()
+
+    result = {
+        "total_samples": len(x_test),
+        "classes": list(range(10)),
+        "class_counts": class_counts,
+        "fp32": fp32_summary,
+        "int8": int8_summary,
+    }
+
+    out_file = Path(output_path)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+
+    print(f"Confusion matrices saved successfully to {output_path}")
+    return result
+
+
 if __name__ == "__main__":
     run_full_benchmark()
+

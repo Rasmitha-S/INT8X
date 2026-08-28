@@ -60,6 +60,15 @@ def load_tinyml_analysis() -> Dict[str, Any]:
         return json.load(f)
 
 
+@st.cache_data
+def load_confusion_matrix_data() -> Dict[str, Any]:
+    cm_file = RESULTS_DIR / "confusion_matrices.json"
+    if not cm_file.exists():
+        return {}
+    with open(cm_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @st.cache_resource
 def get_interpreter(model_path_str: str):
     full_path = ROOT_DIR / model_path_str
@@ -436,6 +445,110 @@ with tab_analysis:
         st.markdown(table_markdown)
 
         st.info("ℹ️ **Measurement Note**: Latency metrics reflect single-sample execution measured on the host development environment (CPU). Microcontroller execution cycles will vary depending on MCU clock speed and instruction set architecture.")
+
+        # --- Confusion Matrix Section ---
+        st.markdown("---")
+        st.markdown("##### 🎯 Classification Analysis: FP32 vs INT8 Confusion Matrix")
+        st.caption("10×10 confusion matrices evaluated across all 10,000 genuine MNIST test samples. Compare per-class precision along the diagonal and off-diagonal misclassifications.")
+
+        cm_data = load_confusion_matrix_data()
+        if cm_data and "fp32" in cm_data and "int8" in cm_data:
+            cm_mode = st.radio(
+                "Confusion Matrix View:",
+                ["Raw Counts", "Normalized (%)"],
+                horizontal=True,
+                key="cm_display_mode",
+            )
+            is_normalized = (cm_mode == "Normalized (%)")
+
+            fp32_mat = np.array(cm_data["fp32"]["matrix"], dtype=np.float32)
+            int8_mat = np.array(cm_data["int8"]["matrix"], dtype=np.float32)
+            classes = [str(c) for c in cm_data.get("classes", list(range(10)))]
+
+            if is_normalized:
+                row_sums_fp32 = fp32_mat.sum(axis=1, keepdims=True)
+                fp32_display = np.where(row_sums_fp32 > 0, (fp32_mat / row_sums_fp32) * 100.0, 0.0)
+
+                row_sums_int8 = int8_mat.sum(axis=1, keepdims=True)
+                int8_display = np.where(row_sums_int8 > 0, (int8_mat / row_sums_int8) * 100.0, 0.0)
+
+                zmin, zmax = 0.0, 100.0
+                text_template_fp32 = [[f"{val:.1f}%" if val >= 0.5 else "" for val in row] for row in fp32_display]
+                text_template_int8 = [[f"{val:.1f}%" if val >= 0.5 else "" for val in row] for row in int8_display]
+                colorbar_title = "Recall (%)"
+            else:
+                fp32_display = fp32_mat
+                int8_display = int8_mat
+                zmin, zmax = 0, float(np.max([fp32_mat.max(), int8_mat.max()]))
+                text_template_fp32 = [[f"{int(val)}" if val > 0 else "" for val in row] for row in fp32_display]
+                text_template_int8 = [[f"{int(val)}" if val > 0 else "" for val in row] for row in int8_display]
+                colorbar_title = "Count"
+
+            col_cm_fp32, col_cm_int8 = st.columns(2)
+
+            with col_cm_fp32:
+                fig_cm_fp32 = go.Figure(
+                    data=go.Heatmap(
+                        z=fp32_display,
+                        x=classes,
+                        y=classes,
+                        text=text_template_fp32,
+                        texttemplate="%{text}",
+                        colorscale="Blues",
+                        zmin=zmin,
+                        zmax=zmax,
+                        colorbar=dict(title=colorbar_title),
+                    )
+                )
+                fig_cm_fp32.update_layout(
+                    title=f"FP32 TFLite ({cm_data['fp32']['correct_predictions']:,} / 10,000 Correct)",
+                    xaxis=dict(title="Predicted Digit", tickmode="linear", dtick=1),
+                    yaxis=dict(title="Actual Digit", tickmode="linear", dtick=1, autorange="reversed"),
+                    height=420,
+                    margin=dict(l=40, r=20, t=50, b=40),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#F8FAFC"),
+                )
+                st.plotly_chart(fig_cm_fp32, use_container_width=True)
+
+            with col_cm_int8:
+                fig_cm_int8 = go.Figure(
+                    data=go.Heatmap(
+                        z=int8_display,
+                        x=classes,
+                        y=classes,
+                        text=text_template_int8,
+                        texttemplate="%{text}",
+                        colorscale="Teal",
+                        zmin=zmin,
+                        zmax=zmax,
+                        colorbar=dict(title=colorbar_title),
+                    )
+                )
+                fig_cm_int8.update_layout(
+                    title=f"INT8 TFLite ({cm_data['int8']['correct_predictions']:,} / 10,000 Correct)",
+                    xaxis=dict(title="Predicted Digit", tickmode="linear", dtick=1),
+                    yaxis=dict(title="Actual Digit", tickmode="linear", dtick=1, autorange="reversed"),
+                    height=420,
+                    margin=dict(l=40, r=20, t=50, b=40),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#F8FAFC"),
+                )
+                st.plotly_chart(fig_cm_int8, use_container_width=True)
+
+            c_s1, c_s2, c_s3, c_s4 = st.columns(4)
+            with c_s1:
+                st.metric("FP32 Correct", f"{cm_data['fp32']['correct_predictions']:,} / 10,000", f"{cm_data['fp32']['accuracy_percent']}%")
+            with c_s2:
+                st.metric("FP32 Misclassifications", f"{cm_data['fp32']['incorrect_predictions']:,}", f"{cm_data['fp32']['incorrect_predictions'] / 100.0:.2f}% Error Rate", delta_color="inverse")
+            with c_s3:
+                st.metric("INT8 Correct", f"{cm_data['int8']['correct_predictions']:,} / 10,000", f"{cm_data['int8']['accuracy_percent']}% (+2)")
+            with c_s4:
+                st.metric("INT8 Misclassifications", f"{cm_data['int8']['incorrect_predictions']:,}", f"-2 vs FP32 ({cm_data['int8']['incorrect_predictions'] / 100.0:.2f}% Error Rate)", delta_color="inverse")
+        else:
+            st.warning("Confusion matrix data file not found at results/confusion_matrices.json")
     else:
         st.error("No comparison data available.")
 
