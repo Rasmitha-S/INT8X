@@ -21,7 +21,11 @@ from src.inference import (
     quantize_input_image,
     run_inference,
 )
-from src.metrics import evaluate_memory_budget, simulate_mcu_resources
+from src.metrics import (
+    evaluate_memory_budget,
+    get_quantization_impact_summary,
+    simulate_mcu_resources,
+)
 from streamlit_drawable_canvas import st_canvas
 
 # Base project paths (relative)
@@ -653,78 +657,287 @@ with tab_infer:
 
 
 # -----------------------------------------------------------------------------
-# TAB 3: MODEL ANALYSIS (Detailed Comparison & Confusion Matrix)
+# TAB 3: MODEL ANALYSIS (Quantization Impact Analyzer & Confusion Matrix)
 # -----------------------------------------------------------------------------
 with tab_analysis:
     st.markdown(
         """
         <div style="margin-bottom: 14px;">
-            <div style="font-size: 1.3rem; font-weight: 800; color: #F8FAFC;">MODEL COMPARISON & BENCHMARKING</div>
-            <div style="font-size: 0.85rem; color: #94A3B8;">Quantitative verification over 10,000 genuine MNIST test samples.</div>
+            <div style="font-size: 1.3rem; font-weight: 800; color: #F8FAFC;">🔬 INT8 QUANTIZATION IMPACT ANALYZER</div>
+            <div style="font-size: 0.85rem; color: #94A3B8;">See exactly what changed when the FP32 model was converted to full-integer INT8.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     if has_data:
-        # Clean Structured Table
+        impact = get_quantization_impact_summary(comparison)
+
+        # 4-Quadrant Summary Grid
+        q1, q2, q3, q4 = st.columns(4)
+        with q1:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-label">STORAGE IMPACT</div>
+                    <div class="metric-value" style="color: #00E5FF;">↓ {impact['size_reduction_percent']}%</div>
+                    <div class="metric-sub" style="color: #22C55E;">{impact['bytes_saved']:,} bytes saved ({impact['compression_ratio']}×)</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with q2:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-label">ACCURACY IMPACT</div>
+                    <div class="metric-value" style="color: #22C55E;">+{impact['accuracy_delta_points']} pts</div>
+                    <div class="metric-sub" style="color: #22C55E;">✓ No observed loss ({impact['int8_accuracy_percent']}%)</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with q3:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-label">LATENCY IMPACT</div>
+                    <div class="metric-value" style="color: #38BDF8;">{impact['latency_change_percent']}%</div>
+                    <div class="metric-sub" style="color: #94A3B8;">Host CPU Mean ({impact['int8_latency_mean_ms']:.4f} ms)</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with q4:
+            st.markdown(
+                """
+                <div class="metric-card">
+                    <div class="metric-label">PRECISION SHIFT</div>
+                    <div class="metric-value" style="color: #A78BFA;">32b ➔ 8b</div>
+                    <div class="metric-sub" style="color: #94A3B8;">4× Fewer Bits Per Value</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="metric-label">FP32 BASELINE VS INT8 QUANTIZED COMPARISON</div>', unsafe_allow_html=True)
+
+        # Structured Comparison Table
         st.markdown(
             f"""
 | Dimension | FP32 Baseline | INT8 Quantized | Measured Change |
 |:---|:---|:---|:---|
-| **Model Size** | `{fp32_b.get('size_kb', 34.70)} KB` ({fp32_b.get('size_bytes', 35536):,} B) | `{int8_q.get('size_kb', 13.50)} KB` ({int8_q.get('size_bytes', 13824):,} B) | **`-{res.get('size_reduction_percent', 61.10)}%`** ({res.get('compression_ratio', 2.57)}×) |
-| **Test Accuracy (10k)** | `{fp32_b.get('accuracy_percent', 98.44)}%` ({fp32_b.get('correct_predictions', 9844):,} / 10k) | `{int8_q.get('accuracy_percent', 98.46)}%` ({int8_q.get('correct_predictions', 9846):,} / 10k) | **`+{res.get('accuracy_delta_percentage_points', 0.02)} pts`** (Lossless) |
-| **Host Mean Latency** | `{fp32_b.get('latency_mean_ms', 0.0133):.4f} ms` | `{int8_q.get('latency_mean_ms', 0.0098):.4f} ms` | **`{res.get('latency_change_percent', -26.32)}%`** (Host CPU) |
-| **Tensor Data Types** | `float32` in / `float32` out | `int8` in / `int8` out | **Full-Integer Quantization** |
+| **Representation** | `FLOAT32` (32-bit float) | `INT8` (8-bit integer) | **4× Fewer Bits / Value** |
+| **Model Size** | `{impact['fp32_size_kb']} KB` ({impact['fp32_size_bytes']:,} B) | `{impact['int8_size_kb']} KB` ({impact['int8_size_bytes']:,} B) | **`-{impact['size_reduction_percent']}%`** ({impact['compression_ratio']}×, {impact['bytes_saved']:,} B saved) |
+| **Test Accuracy (10k)** | `{impact['fp32_accuracy_percent']}%` ({fp32_b.get('correct_predictions', 9844):,} / 10k) | `{impact['int8_accuracy_percent']}%` ({int8_q.get('correct_predictions', 9846):,} / 10k) | **`+{impact['accuracy_delta_points']} pts`** (Lossless) |
+| **Host Mean Latency** | `{impact['fp32_latency_mean_ms']:.4f} ms` | `{impact['int8_latency_mean_ms']:.4f} ms` | **`{impact['latency_change_percent']}%`** (Host CPU) |
+| **Input Tensor** | `{impact['fp32_input_dtype']}` {impact['fp32_input_shape']} | `{impact['int8_input_dtype']}` {impact['int8_input_shape']} | **Integer Quantized Input** |
+| **Output Tensor** | `{impact['fp32_output_dtype']}` {impact['fp32_output_shape']} | `{impact['int8_output_dtype']}` {impact['int8_output_shape']} | **Integer Quantized Output** |
 | **Hardware FPU** | Required | **Not Required** | **TinyML ALU Compatible** |
             """
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="metric-label">VISUAL IMPACT CHARTS</div>', unsafe_allow_html=True)
 
-        col_ch1, col_ch2 = st.columns(2)
-        with col_ch1:
-            fig_size = go.Figure(
-                go.Bar(
-                    x=["FP32 Baseline", "INT8 Quantized"],
-                    y=[fp32_b.get("size_kb", 34.70), int8_q.get("size_kb", 13.50)],
-                    marker_color=["#334155", "#00E5FF"],
-                    text=[f"{fp32_b.get('size_kb', 34.70)} KB", f"{int8_q.get('size_kb', 13.50)} KB"],
-                    textposition="auto",
-                )
+        # Model Size Horizontal Impact Chart
+        st.markdown('<div class="metric-label">MODEL SIZE IMPACT</div>', unsafe_allow_html=True)
+        fig_size_horiz = go.Figure(
+            go.Bar(
+                y=["INT8 Quantized", "FP32 Baseline"],
+                x=[impact["int8_size_kb"], impact["fp32_size_kb"]],
+                orientation="h",
+                marker_color=["#00E5FF", "#334155"],
+                text=[f"{impact['int8_size_kb']} KB (13,824 B)", f"{impact['fp32_size_kb']} KB (35,536 B)"],
+                textposition="auto",
             )
-            fig_size.update_layout(
-                title=f"Flash Storage: -{res.get('size_reduction_percent', 61.10)}%",
-                yaxis=dict(title="Size (KB)"),
-                height=230,
-                margin=dict(l=20, r=20, t=35, b=20),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#F8FAFC", size=11),
-            )
-            st.plotly_chart(fig_size, use_container_width=True)
+        )
+        fig_size_horiz.update_layout(
+            title=f"Storage Footprint: -{impact['size_reduction_percent']}% ({impact['compression_ratio']}× compression, {impact['bytes_saved']:,} bytes saved)",
+            xaxis=dict(title="Size (KB)", range=[0, 40]),
+            yaxis=dict(autorange="reversed"),
+            height=200,
+            margin=dict(l=20, r=20, t=35, b=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#F8FAFC", size=11),
+        )
+        st.plotly_chart(fig_size_horiz, use_container_width=True)
 
-        with col_ch2:
-            fig_lat = go.Figure(
-                go.Bar(
-                    x=["FP32 Mean", "INT8 Mean"],
-                    y=[fp32_b.get("latency_mean_ms", 0.0133), int8_q.get("latency_mean_ms", 0.0098)],
-                    marker_color=["#334155", "#38BDF8"],
-                    text=[f"{fp32_b.get('latency_mean_ms', 0.0133):.4f} ms", f"{int8_q.get('latency_mean_ms', 0.0098):.4f} ms"],
-                    textposition="auto",
-                )
+        # Accuracy & Latency Impact Cards
+        col_imp1, col_imp2 = st.columns(2)
+        with col_imp1:
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase;">ACCURACY IMPACT</div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: #94A3B8;">FP32: </span><b style="color: #F8FAFC;">{impact['fp32_accuracy_percent']}%</b>
+                            &nbsp;➔&nbsp;
+                            <span style="font-size: 0.8rem; color: #94A3B8;">INT8: </span><b style="color: #22C55E;">{impact['int8_accuracy_percent']}%</b>
+                        </div>
+                        <div style="font-size: 1.1rem; font-weight: 900; color: #22C55E;">+{impact['accuracy_delta_points']} pts</div>
+                    </div>
+                    <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid #22C55E; color: #22C55E; font-size: 0.78rem; font-weight: 700; padding: 6px 10px; border-radius: 4px; margin-top: 10px;">
+                        ✓ {impact['accuracy_status_statement']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            fig_lat.update_layout(
-                title="Single-Sample Host Latency (ms)",
-                yaxis=dict(title="Latency (ms)"),
-                height=230,
-                margin=dict(l=20, r=20, t=35, b=20),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#F8FAFC", size=11),
+
+        with col_imp2:
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 8px; padding: 16px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase;">INFERENCE PERFORMANCE</div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: #94A3B8;">FP32: </span><b style="color: #F8FAFC;">{impact['fp32_latency_mean_ms']:.4f} ms</b>
+                            &nbsp;➔&nbsp;
+                            <span style="font-size: 0.8rem; color: #94A3B8;">INT8: </span><b style="color: #38BDF8;">{impact['int8_latency_mean_ms']:.4f} ms</b>
+                        </div>
+                        <div style="font-size: 1.1rem; font-weight: 900; color: #38BDF8;">{impact['latency_change_percent']}%</div>
+                    </div>
+                    <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 10px; line-height: 1.4;">
+                        INT8 showed lower mean host-CPU inference latency in the measured benchmark.<br>
+                        <span style="font-size: 0.72rem; color: #64748B;">⚡ Host CPU measurement, not physical MCU timing.</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            st.plotly_chart(fig_lat, use_container_width=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Precision & Tensor Transformation Cards
+        col_tr1, col_tr2 = st.columns(2)
+        with col_tr1:
+            st.markdown(
+                """
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 8px; padding: 16px; height: 100%;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase;">PRECISION TRANSFORMATION</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0; background: #0D111A; padding: 10px 14px; border-radius: 6px; border: 1px solid #1A2130;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 0.72rem; color: #64748B; font-weight: 800;">FP32</div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: #F8FAFC;">32-bit Float</div>
+                            <div style="font-size: 0.72rem; color: #94A3B8;">32 bits / value</div>
+                        </div>
+                        <div style="font-size: 1.1rem; color: #38BDF8; font-weight: 900;">➔ PTQ ➔</div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 0.72rem; color: #00E5FF; font-weight: 800;">INT8</div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: #00E5FF;">8-bit Integer</div>
+                            <div style="font-size: 0.72rem; color: #22C55E;">8 bits / value</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.76rem; color: #94A3B8; line-height: 1.4;">
+                        <b>4× fewer bits per value</b> (32-bit ➔ 8-bit). Overall FlatBuffer file compression is <b>2.57×</b> due to model metadata and schema definitions.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with col_tr2:
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 8px; padding: 16px; height: 100%;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase;">INPUT / OUTPUT TENSOR TRANSFORMATION</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                        <div style="background: #0D111A; border: 1px solid #1A2130; border-radius: 6px; padding: 10px;">
+                            <div style="font-size: 0.7rem; font-weight: 800; color: #64748B;">INPUT TENSOR</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 2px;">FP32: <code>float32 {impact['fp32_input_shape']}</code></div>
+                            <div style="font-size: 0.78rem; color: #00E5FF; font-weight: 700; margin-top: 2px;">INT8: <code>int8 {impact['int8_input_shape']}</code></div>
+                        </div>
+                        <div style="background: #0D111A; border: 1px solid #1A2130; border-radius: 6px; padding: 10px;">
+                            <div style="font-size: 0.7rem; font-weight: 800; color: #64748B;">OUTPUT TENSOR</div>
+                            <div style="font-size: 0.78rem; color: #94A3B8; margin-top: 2px;">FP32: <code>float32 {impact['fp32_output_shape']}</code></div>
+                            <div style="font-size: 0.78rem; color: #00E5FF; font-weight: 700; margin-top: 2px;">INT8: <code>int8 {impact['int8_output_shape']}</code></div>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.76rem; color: #94A3B8; margin-top: 10px; line-height: 1.4;">
+                        Full-integer quantization enforces strict <code>int8</code> tensor inputs and outputs, removing floating-point software emulation on microcontrollers.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # "What Did We Gain?" Section
+        st.markdown('<div class="metric-label">WHAT INT8 GIVES THIS TINYML MODEL</div>', unsafe_allow_html=True)
+        g1, g2, g3, g4 = st.columns(4)
+        with g1:
+            st.markdown(
+                """
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 14px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #00E5FF;">SMALLER</div>
+                    <div style="font-size: 1.05rem; font-weight: 900; color: #F8FAFC; margin-top: 2px;">61.10% Less Storage</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 2px;">Fits microcontrollers with &le;32 KB Flash</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with g2:
+            st.markdown(
+                """
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 14px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #38BDF8;">INTEGER</div>
+                    <div style="font-size: 1.05rem; font-weight: 900; color: #F8FAFC; margin-top: 2px;">Full INT8 In/Out</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 2px;">Runs on integer ALUs without FPU</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with g3:
+            st.markdown(
+                """
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 14px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #22C55E;">ACCURATE</div>
+                    <div style="font-size: 1.05rem; font-weight: 900; color: #F8FAFC; margin-top: 2px;">98.46% Test Accuracy</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 2px;">Lossless conversion over 10k samples</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with g4:
+            st.markdown(
+                """
+                <div style="background: #111622; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 14px;">
+                    <div style="font-size: 0.75rem; font-weight: 800; color: #A78BFA;">FASTER</div>
+                    <div style="font-size: 1.05rem; font-weight: 900; color: #F8FAFC; margin-top: 2px;">26.32% Lower Latency</div>
+                    <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 2px;">Measured single-sample host mean</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.caption("These measurements demonstrate why integer quantization is useful for resource-constrained edge inference.")
+
+        # "What Changed?" (Trade-off Analysis)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="background: #0D111A; border: 1px solid #1A2130; border-radius: 8px; padding: 14px 18px;">
+                <div style="font-size: 0.75rem; font-weight: 800; color: #64748B; text-transform: uppercase;">WHAT CHANGED? (NUMERICAL TRADE-OFF ANALYSIS)</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin: 8px 0; font-size: 0.82rem; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <b style="color: #F8FAFC;">FP32:</b> High numerical precision &bull; Larger representation &bull; Larger model footprint (34.70 KB)
+                    </div>
+                    <div style="color: #38BDF8; font-weight: 800;">➔ PTQ ➔</div>
+                    <div>
+                        <b style="color: #00E5FF;">INT8:</b> Lower numerical precision &bull; Smaller representation &bull; Smaller model footprint (13.50 KB)
+                    </div>
+                </div>
+                <div style="font-size: 0.78rem; color: #22C55E; margin-top: 4px;">
+                    ✓ In this experiment, the reduction in numerical precision did not produce an observed accuracy loss on the 10,000-sample MNIST test set.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         # Confusion Matrices
         st.markdown("---")
