@@ -178,3 +178,56 @@ def evaluate_memory_budget(
         "explanation": explanation,
     }
 
+
+def simulate_mcu_resources(
+    available_flash_kb: float,
+    available_ram_kb: float,
+    model_flash_bytes: int = 13824,
+    estimated_arena_bytes: int = 14336,
+) -> Dict[str, Any]:
+    """
+    Simulates static MCU resource compatibility for the INT8 TinyML model against target Flash and SRAM constraints.
+
+    Args:
+        available_flash_kb: Target MCU Flash / ROM budget in kilobytes.
+        available_ram_kb: Target MCU RAM / SRAM budget in kilobytes.
+        model_flash_bytes: Verified INT8 model binary footprint in bytes (default 13,824).
+        estimated_arena_bytes: Estimated TFLite Micro tensor arena footprint in bytes (default 14,336).
+
+    Returns:
+        Dictionary containing simulation results, utilization, headroom/shortfall, status labels, and pass/fail states.
+    """
+    res = evaluate_memory_budget(
+        available_flash_kb=available_flash_kb,
+        available_ram_kb=available_ram_kb,
+        model_flash_bytes=model_flash_bytes,
+        estimated_arena_bytes=estimated_arena_bytes,
+    )
+
+    if res["flash_fits"] and res["ram_fits"]:
+        status_category = "BOTH_PASS"
+        status_title = "✓ MODEL FITS"
+        status_message = "This model is compatible with the selected static Flash/RAM budget."
+    elif not res["flash_fits"] and res["ram_fits"]:
+        status_category = "FLASH_FAIL"
+        status_title = "⚠ MODEL DOES NOT FIT"
+        status_message = "Insufficient Flash capacity."
+    elif res["flash_fits"] and not res["ram_fits"]:
+        status_category = "RAM_FAIL"
+        status_title = "⚠ MODEL DOES NOT FIT"
+        status_message = "Insufficient SRAM for the estimated Tensor Arena."
+    else:
+        status_category = "BOTH_FAIL"
+        status_title = "✕ MODEL DOES NOT FIT"
+        status_message = "The selected resource budget is insufficient."
+
+    res.update({
+        "status_category": status_category,
+        "status_title": status_title,
+        "status_message": status_message,
+        "flash_status_str": "PASS" if res["flash_fits"] else "FAIL",
+        "ram_status_str": "PASS" if res["ram_fits"] else "FAIL",
+    })
+    return res
+
+

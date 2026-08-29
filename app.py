@@ -21,7 +21,7 @@ from src.inference import (
     quantize_input_image,
     run_inference,
 )
-from src.metrics import evaluate_memory_budget
+from src.metrics import evaluate_memory_budget, simulate_mcu_resources
 from streamlit_drawable_canvas import st_canvas
 
 # Base project paths (relative)
@@ -981,6 +981,262 @@ with tab_tinyml:
                 unsafe_allow_html=True,
             )
 
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("---")
+
+        # ---------------------------------------------------------------------
+        # 🚀 WHAT-IF MCU SIMULATOR SECTION
+        # ---------------------------------------------------------------------
+        st.markdown("### 🚀 What-If MCU Simulator")
+        st.markdown(
+            """
+            <div style="font-size: 0.88rem; color: #94A3B8; margin-bottom: 16px;">
+                Explore whether the current INT8 model would fit within a hypothetical MCU's Flash and SRAM constraints.
+                <br><span style="font-size: 0.76rem; color: #64748B;">⚡ Static resource simulation based on verified binary footprint and analytical Tensor Arena estimates.</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Model Requirements Display
+        col_req1, col_req2 = st.columns(2)
+        with col_req1:
+            st.markdown(
+                f"""
+                <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 16px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">MODEL REQUIREMENTS: FLASH</span>
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #22C55E; background: rgba(34, 197, 94, 0.1); border: 1px solid #22C55E; padding: 2px 6px; border-radius: 4px;">VERIFIED</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 900; color: #00E5FF; margin-top: 4px;">13.50 KB <span style="font-size: 0.85rem; color: #94A3B8; font-weight: 600;">({ver['flash_storage_bytes']:,} bytes)</span></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col_req2:
+            st.markdown(
+                f"""
+                <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 12px 16px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">MODEL REQUIREMENTS: RAM</span>
+                        <span style="font-size: 0.7rem; font-weight: 800; color: #F59E0B; background: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; padding: 2px 6px; border-radius: 4px;">ESTIMATED</span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 900; color: #F59E0B; margin-top: 4px;">~14.00 KB <span style="font-size: 0.85rem; color: #94A3B8; font-weight: 600;">(Tensor Arena Estimate)</span></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        mcu_presets = {
+            "Standard TinyML (32 KB Flash / 32 KB RAM)": (32.0, 32.0),
+            "Generic Tiny (16 KB Flash / 16 KB RAM)": (16.0, 16.0),
+            "Mid-Range MCU (64 KB Flash / 64 KB RAM)": (64.0, 64.0),
+            "High-End TinyML (128 KB Flash / 128 KB RAM)": (128.0, 128.0),
+            "Arduino Nano 33 BLE (1024 KB Flash / 256 KB RAM)": (1024.0, 256.0),
+            "Raspberry Pi RP2040 (2048 KB Flash / 264 KB RAM)": (2048.0, 264.0),
+            "ESP32-S3 (4096 KB Flash / 512 KB RAM)": (4096.0, 512.0),
+            "Custom MCU": (32.0, 32.0),
+        }
+
+        col_pr, col_fl, col_rm = st.columns([2, 1, 1])
+        with col_pr:
+            sel_preset = st.selectbox(
+                "Target Device Preset:",
+                list(mcu_presets.keys()),
+                index=0,
+                key="whatif_mcu_preset_select",
+            )
+            def_f, def_r = mcu_presets[sel_preset]
+
+        with col_fl:
+            fl_kb = st.number_input(
+                "Available Flash (KB):",
+                min_value=0.0,
+                max_value=16384.0,
+                value=float(def_f),
+                step=4.0,
+                key=f"whatif_flash_input_{sel_preset}",
+            )
+        with col_rm:
+            rm_kb = st.number_input(
+                "Available RAM (KB):",
+                min_value=0.0,
+                max_value=4096.0,
+                value=float(def_r),
+                step=4.0,
+                key=f"whatif_ram_input_{sel_preset}",
+            )
+
+        sim_res = simulate_mcu_resources(
+            available_flash_kb=fl_kb,
+            available_ram_kb=rm_kb,
+            model_flash_bytes=ver["flash_storage_bytes"],
+            estimated_arena_bytes=est["estimated_tensor_arena_bytes"],
+        )
+
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            f_status = "✓ FLASH FITS" if sim_res["flash_fits"] else "✕ FLASH DOES NOT FIT"
+            f_col = "#22C55E" if sim_res["flash_fits"] else "#EF4444"
+            f_detail = (
+                f"{sim_res['flash_usage_pct']:.1f}% utilized &nbsp;|&nbsp; {sim_res['flash_headroom_kb']:.2f} KB remaining"
+                if sim_res["flash_fits"]
+                else f"{sim_res['model_flash_kb']:.2f} KB required, {sim_res['available_flash_kb']:.1f} KB available &nbsp;|&nbsp; Shortfall: {sim_res['flash_shortfall_kb']:.2f} KB"
+            )
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid {'#22C55E' if sim_res['flash_fits'] else '#EF4444'}; border-radius: 6px; padding: 14px 16px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.95rem; color: #F8FAFC;">FLASH ANALYSIS</span>
+                        <span style="font-weight: 800; font-size: 0.85rem; color: {f_col};">{f_status}</span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #94A3B8; margin-top: 6px;">
+                        <b>{sim_res['model_flash_kb']:.2f} KB</b> / <b>{sim_res['available_flash_kb']:.1f} KB</b> used
+                    </div>
+                    <div style="font-size: 0.8rem; color: {'#22C55E' if sim_res['flash_fits'] else '#EF4444'}; margin-top: 4px;">
+                        {f_detail}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            f_prog = min(1.0, sim_res["flash_usage_pct"] / 100.0) if sim_res["available_flash_kb"] > 0 else 1.0
+            st.progress(f_prog, text=f"Flash: {sim_res['flash_usage_pct']:.1f}% utilized")
+
+        with col_g2:
+            r_status = "✓ RAM FITS" if sim_res["ram_fits"] else "✕ RAM DOES NOT FIT"
+            r_col = "#22C55E" if sim_res["ram_fits"] else "#EF4444"
+            r_detail = (
+                f"~{sim_res['ram_usage_pct']:.1f}% utilized &nbsp;|&nbsp; ~{sim_res['ram_headroom_kb']:.2f} KB remaining"
+                if sim_res["ram_fits"]
+                else f"~{sim_res['estimated_arena_kb']:.2f} KB required, {sim_res['available_ram_kb']:.1f} KB available &nbsp;|&nbsp; Shortfall: ~{sim_res['ram_shortfall_kb']:.2f} KB"
+            )
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid {'#22C55E' if sim_res['ram_fits'] else '#EF4444'}; border-radius: 6px; padding: 14px 16px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 800; font-size: 0.95rem; color: #F8FAFC;">RAM ANALYSIS <span style="font-size: 0.72rem; color: #64748B; font-weight: 600;">(Tensor Arena Estimate)</span></span>
+                        <span style="font-weight: 800; font-size: 0.85rem; color: {r_col};">{r_status}</span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #94A3B8; margin-top: 6px;">
+                        <b>~{sim_res['estimated_arena_kb']:.2f} KB</b> / <b>{sim_res['available_ram_kb']:.1f} KB</b> used
+                    </div>
+                    <div style="font-size: 0.8rem; color: {'#22C55E' if sim_res['ram_fits'] else '#EF4444'}; margin-top: 4px;">
+                        {r_detail}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            r_prog = min(1.0, sim_res["ram_usage_pct"] / 100.0) if sim_res["available_ram_kb"] > 0 else 1.0
+            st.progress(r_prog, text=f"RAM: ~{sim_res['ram_usage_pct']:.1f}% utilized")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Prominent Overall Result Card
+        if sim_res["status_category"] == "BOTH_PASS":
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #22C55E; border-radius: 8px; padding: 18px; box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 1.25rem; font-weight: 900; color: #22C55E;">{sim_res['status_title']}</span>
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #22C55E; background: rgba(34, 197, 94, 0.1); border: 1px solid #22C55E; padding: 3px 10px; border-radius: 4px;">Flash: PASS &nbsp;|&nbsp; RAM: PASS</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #CBD5E1; margin-top: 8px; line-height: 1.5;">
+                        {sim_res['status_message']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif sim_res["status_category"] in ("FLASH_FAIL", "RAM_FAIL"):
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #F59E0B; border-radius: 8px; padding: 18px; box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 1.25rem; font-weight: 900; color: #F59E0B;">{sim_res['status_title']}</span>
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #F59E0B; background: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; padding: 3px 10px; border-radius: 4px;">Flash: {sim_res['flash_status_str']} &nbsp;|&nbsp; RAM: {sim_res['ram_status_str']}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #CBD5E1; margin-top: 8px; line-height: 1.5;">
+                        {sim_res['status_message']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"""
+                <div style="background: #111622; border: 1px solid #EF4444; border-radius: 8px; padding: 18px; box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 1.25rem; font-weight: 900; color: #EF4444;">{sim_res['status_title']}</span>
+                        <span style="font-size: 0.85rem; font-weight: 800; color: #EF4444; background: rgba(239, 68, 68, 0.1); border: 1px solid #EF4444; padding: 3px 10px; border-radius: 4px;">Flash: FAIL &nbsp;|&nbsp; RAM: FAIL</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #CBD5E1; margin-top: 8px; line-height: 1.5;">
+                        {sim_res['status_message']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Resource Headroom / Shortfall Summary
+        col_hr1, col_hr2 = st.columns(2)
+        with col_hr1:
+            if sim_res["flash_fits"]:
+                st.markdown(
+                    f"""
+                    <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 10px 14px; margin-top: 10px;">
+                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">FLASH HEADROOM</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #22C55E; margin-top: 2px;">+{sim_res['flash_headroom_kb']:.2f} KB</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 10px 14px; margin-top: 10px;">
+                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">FLASH SHORTFALL</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #EF4444; margin-top: 2px;">-{sim_res['flash_shortfall_kb']:.2f} KB</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        with col_hr2:
+            if sim_res["ram_fits"]:
+                st.markdown(
+                    f"""
+                    <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 10px 14px; margin-top: 10px;">
+                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">RAM HEADROOM <span style="font-size: 0.65rem; color: #64748B;">(ESTIMATED)</span></div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #22C55E; margin-top: 2px;">~+{sim_res['ram_headroom_kb']:.2f} KB</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style="background: #0D111A; border: 1px solid #1F2737; border-radius: 6px; padding: 10px 14px; margin-top: 10px;">
+                        <div style="font-size: 0.72rem; font-weight: 800; color: #64748B; text-transform: uppercase;">RAM SHORTFALL <span style="font-size: 0.65rem; color: #64748B;">(ESTIMATED)</span></div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #EF4444; margin-top: 2px;">~-{sim_res['ram_shortfall_kb']:.2f} KB</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown(
+            """
+            <div style="font-size: 0.76rem; color: #64748B; background: #0D111A; border: 1px solid #1A2130; border-radius: 6px; padding: 10px 14px; margin-top: 12px; line-height: 1.4;">
+                <b>Simulation boundary:</b> This tool compares the INT8 model footprint and estimated Tensor Arena against user-defined Flash/SRAM budgets. It does not measure firmware size, HAL/runtime overhead, stack usage, power consumption, clock cycles, or physical MCU behavior.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
         with st.expander("Advanced Memory Analysis"):
             st.markdown(
                 f"""
@@ -1004,6 +1260,7 @@ with tab_tinyml:
                     st.code(f.read(), language="c")
     else:
         st.error("TinyML model analysis file not found.")
+
 
 
 # -----------------------------------------------------------------------------
